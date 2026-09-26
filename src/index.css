@@ -1,0 +1,73 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:opsz,wght@5..120,400;5..120,500;5..120,600;5..120,700&family=Manrope:wght@400;500;600;700&family=Noto+Sans+Arabic:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #EDE6D8;
+  --card: #ffffff;
+  --text: #2a2218;
+  --border: #e0d8c5;
+  --brand: #3B0B12;
+}
+
+* { -webkit-tap-highlight-color: transparent; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: 'Manrope', 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[dir="rtl"] body {
+  font-family: 'Noto Sans Arabic', 'IBM Plex Sans Arabic', sans-serif;
+}
+
+html[dir="rtl"] .font-serif {
+  font-family: 'Noto Sans Arabic', sans-serif;
+  font-weight: 600;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #d0c4a8; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #b8a882; }
+
+/* RTL helpers */
+html[dir="rtl"] .rtl-flip { transform: scaleX(-1); }
+
+/* Animations */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes slideInLeft { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes scaleIn { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: scale(1); } }
+@keyframes toastIn { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+
+.animate-fade-in { animation: fadeIn 0.3s ease; }
+.animate-slide-up { animation: slideUp 0.3s ease; }
+.animate-slide-in-right { animation: slideInRight 0.3s ease; }
+.animate-slide-in-left { animation: slideInLeft 0.3s ease; }
+.animate-scale-in { animation: scaleIn 0.2s ease; }
+.animate-toast { animation: toastIn 0.3s ease; }
+
+/* Shared form controls */
+@layer components {
+  .filter-select, .filter-input, .form-input {
+    @apply w-full rounded-xl border border-stone-300 bg-white px-3 py-2.5 text-sm text-navy-700 outline-none transition-all;
+  }
+  .filter-select:focus, .filter-input:focus, .form-input:focus {
+    @apply border-copper-400 ring-2 ring-copper-100;
+  }
+  .filter-input::placeholder, .form-input::placeholder { @apply text-stone-400; }
+}
+
+/* Hide scrollbar for horizontal scroll areas */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
