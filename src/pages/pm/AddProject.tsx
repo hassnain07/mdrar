@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useStore, useToast } from '@/store/StoreContext';
+import { useUi } from '@/state/uiStore';
+import { useToast } from '@/state/uiStore';
+import { useCreateProject } from '@/queries/useProjects';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -8,15 +10,15 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { genId } from '@/lib/helpers';
 import { useBilingualField } from '@/lib/useBilingualField';
-import { activityDefs } from '@/data/pmMockData';
-import type { Project, ProjectActivity, ProjectDocument, ProjectUnit, ProjectStatus } from '@/types';
+import type { ProjectUnit } from '@/types';
 
 export function AddProject() {
   const { t } = useTranslation();
-  const { state, dispatch } = useStore();
+  const { ui } = useUi();
   const navigate = useNavigate();
   const toast = useToast();
-  const isRtl = state.language === 'ar';
+  const createProject = useCreateProject();
+  const isRtl = ui.language === 'ar';
   const BackIcon = isRtl ? ChevronRight : ChevronLeft;
 
   const projectName = useBilingualField();
@@ -82,18 +84,15 @@ export function AddProject() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const projectId = genId('proj');
     const totalDays = Math.round((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
 
-    const project: Project = {
-      id: projectId,
+    createProject.mutate({
       name: projectName.ar || projectName.en,
       nameEn: projectName.en || projectName.ar,
       location: projectLocation.ar || projectLocation.en,
       locationEn: projectLocation.en || projectLocation.ar,
       totalUnits,
       unitTypes: unitTypes.filter((u) => u.type || u.typeEn),
-      unitInstances: [],
       startDate,
       endDate,
       totalDays: totalDays || 365,
@@ -103,40 +102,11 @@ export function AddProject() {
       consultant: projectConsultant.ar || undefined,
       consultantEn: projectConsultant.en || undefined,
       budget,
-      status: 'on_track' as ProjectStatus,
-    };
-
-    const activities: ProjectActivity[] = activityDefs.map((a) => ({
-      id: a.id,
-      activityId: a.activityId,
-      name: a.name,
-      nameEn: a.nameEn,
-      phase: a.phase,
-      startDay: a.startDay,
-      endDay: a.startDay + a.duration,
-      duration: a.duration,
-      percentComplete: a.phase === 'milestone' ? 100 : 0,
-      status: a.phase === 'milestone' ? 'completed' : 'not_started',
-      team: 'فريق المقاول الرئيسي',
-      teamEn: 'Main Contractor Team',
-      description: '',
-      descriptionEn: '',
-      actualCost: 0,
-      plannedCost: 0,
-    }));
-
-    const today = new Date().toISOString().slice(0, 10);
-    const documents: ProjectDocument[] = [
-      { id: genId('doc'), name: 'عقد الإنشاء', nameEn: 'Construction Contract', type: 'pdf', uploadDate: today, category: 'contracts', categoryId: 'contracts', categoryName: 'عقود الإنشاء', categoryNameEn: 'Construction Contracts' },
-      { id: genId('doc'), name: 'الخطة الرئيسية', nameEn: 'Master Plan', type: 'pdf', uploadDate: today, category: 'master_plan', categoryId: 'master_plan', categoryName: 'المخطط الرئيسي', categoryNameEn: 'Master Plan' },
-      { id: genId('doc'), name: 'رخصة البناء', nameEn: 'Building Permit', type: 'pdf', uploadDate: today, category: 'permits', categoryId: 'permits', categoryName: 'التراخيص', categoryNameEn: 'Permits' },
-      { id: genId('doc'), name: 'الموافقة البيئية', nameEn: 'Environmental Clearance', type: 'pdf', uploadDate: today, category: 'permits', categoryId: 'permits', categoryName: 'التراخيص', categoryNameEn: 'Permits' },
-      { id: genId('doc'), name: 'جدول المقاول', nameEn: 'Contractor Schedule', type: 'pdf', uploadDate: today, category: 'construction_files', categoryId: 'construction_files', categoryName: 'ملفات البناء', categoryNameEn: 'Construction Files' },
-    ];
-
-    dispatch({ type: 'ADD_PROJECT', project, activities, documents, risks: [] });
-    toast(t('pm:projectCreated'));
-    navigate('/pm');
+      status: 'on_track',
+    }, {
+      onSuccess: () => { toast(t('pm:projectCreated')); navigate('/pm'); },
+      onError: () => toast(t('errorSaving')),
+    });
   };
 
   return (

@@ -3,11 +3,12 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/auth/AuthProvider';
 import { useUi } from '@/state/uiStore';
 import { useToast } from '@/state/uiStore';
-import { useCreateRequest } from '@/queries/useRequests';
+import { useCreateRequest, useUpdateRequest } from '@/queries/useRequests';
 import { usePropertyList } from '@/queries/useProperties';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, Camera, ChevronDown, X, CheckCircle2 } from 'lucide-react';
+import { dataSource } from '@/data/client/index';
 import type { RequestType, Category } from '@/types';
 
 export function ResidentSupport() {
@@ -21,12 +22,16 @@ export function ResidentSupport() {
   const { data: propertiesResult } = usePropertyList();
   const properties = propertiesResult?.data ?? [];
   const { mutateAsync: createRequest, isPending } = useCreateRequest();
+  const { mutateAsync: updateRequest } = useUpdateRequest();
+
+  const hasKnownUnit = Boolean(session?.tenantPropertyId && session?.tenantUnit);
+  const knownProperty = properties.find((p) => p.id === session?.tenantPropertyId);
 
   const [reqType, setReqType] = useState<RequestType | ''>('');
   const [category, setCategory] = useState<Category | ''>('');
   const [description, setDescription] = useState('');
   const [visitDateTime, setVisitDateTime] = useState('');
-  const [photoName, setPhotoName] = useState('');
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [selectedPropertyId, setSelectedPropertyId] = useState(session?.tenantPropertyId ?? '');
   const [selectedUnit, setSelectedUnit] = useState(session?.tenantUnit ?? '');
   const [errors, setErrors] = useState<Record<string, boolean>>({});
@@ -72,9 +77,30 @@ export function ResidentSupport() {
         description: description.trim(),
         status: 'submitted',
         priority: isEmergency ? 'critical' : reqType === 'corrective' ? 'high' : 'normal',
-        date: new Date().toLocaleDateString(isRtl ? 'ar-SA' : 'en-GB'),
-        photo: photoName || undefined,
+        date: new Date().toISOString(),
+        photo: undefined,
       });
+
+      if (photoFile) {
+        try {
+          // In mock mode, convert to base64 data URL; in Supabase mode, upload to storage
+          let photoUrl: string;
+          if (import.meta.env.VITE_DATA_SOURCE === 'supabase') {
+            const { url } = await dataSource.storage.upload('request-photos', `${req.id}/${photoFile.name}`, photoFile);
+            photoUrl = url;
+          } else {
+            photoUrl = await new Promise<string>((res) => {
+              const reader = new FileReader();
+              reader.onload = () => res(reader.result as string);
+              reader.readAsDataURL(photoFile);
+            });
+          }
+          await updateRequest({ id: req.id, changes: { photo: photoUrl } });
+        } catch {
+          // Photo upload failure is non-fatal — request was already created
+        }
+      }
+
       setSubmittedId(req.id);
       setWasEmergency(isEmergency);
       setSubmitted(true);
@@ -86,7 +112,7 @@ export function ResidentSupport() {
 
   const resetForm = () => {
     setReqType(''); setCategory(''); setDescription(''); setVisitDateTime('');
-    setPhotoName(''); setErrors({}); setSubmitted(false); setSubmittedId(''); setWasEmergency(false);
+    setPhotoFile(null); setErrors({}); setSubmitted(false); setSubmittedId(''); setWasEmergency(false);
   };
 
   const handleClose = () => navigate('/tenant');
@@ -149,37 +175,45 @@ export function ResidentSupport() {
           <div className="grid sm:grid-cols-2 gap-3">
             <div>
               <label className={labelClass}>{t('propertyName')}</label>
-              <div className="relative">
-                <select
-                  value={selectedPropertyId}
-                  onChange={(e) => { setSelectedPropertyId(e.target.value); setSelectedUnit(''); setErrors({ ...errors, property: false }); }}
-                  className={`${inputClass(errors.property)} appearance-none pe-9`}
-                >
-                  <option value="">{isRtl ? 'اختر العقار' : 'Select property'}</option>
-                  {properties.map((p) => (
-                    <option key={p.id} value={p.id}>{isRtl ? p.name : p.nameEn}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              {hasKnownUnit ? (
+                <input className={inputClass()} value={knownProperty ? (isRtl ? knownProperty.name : knownProperty.nameEn) : ''} readOnly />
+              ) : (
+                <div className="relative">
+                  <select
+                    value={selectedPropertyId}
+                    onChange={(e) => { setSelectedPropertyId(e.target.value); setSelectedUnit(''); setErrors({ ...errors, property: false }); }}
+                    className={`${inputClass(errors.property)} appearance-none pe-9`}
+                  >
+                    <option value="">{isRtl ? 'اختر العقار' : 'Select property'}</option>
+                    {properties.map((p) => (
+                      <option key={p.id} value={p.id}>{isRtl ? p.name : p.nameEn}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-stone-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
               {errors.property && <p className="text-danger-600 text-xs mt-1">{t('required')}</p>}
             </div>
             <div>
               <label className={labelClass}>{t('unitNumber')}</label>
-              <div className="relative">
-                <select
-                  disabled={!selectedPropertyId}
-                  value={selectedUnit}
-                  onChange={(e) => { setSelectedUnit(e.target.value); setErrors({ ...errors, unit: false }); }}
-                  className={`${inputClass(errors.unit)} appearance-none pe-9 ${!selectedPropertyId ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <option value="">{isRtl ? 'اختر الوحدة' : 'Select unit'}</option>
-                  {unitOptions.map((u) => (
-                    <option key={u} value={u}>{u}</option>
-                  ))}
-                </select>
-                <ChevronDown className="w-4 h-4 text-stone-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
+              {hasKnownUnit ? (
+                <input className={inputClass()} value={selectedUnit} readOnly />
+              ) : (
+                <div className="relative">
+                  <select
+                    disabled={!selectedPropertyId}
+                    value={selectedUnit}
+                    onChange={(e) => { setSelectedUnit(e.target.value); setErrors({ ...errors, unit: false }); }}
+                    className={`${inputClass(errors.unit)} appearance-none pe-9 ${!selectedPropertyId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <option value="">{isRtl ? 'اختر الوحدة' : 'Select unit'}</option>
+                    {unitOptions.map((u) => (
+                      <option key={u} value={u}>{u}</option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-stone-400 absolute end-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
               {errors.unit && <p className="text-danger-600 text-xs mt-1">{t('required')}</p>}
             </div>
           </div>
@@ -253,8 +287,8 @@ export function ResidentSupport() {
             <label className={labelClass}>{t('attachPhotos')}</label>
             <label className="flex flex-col items-center justify-center gap-1.5 px-4 py-5 rounded-lg border-2 border-dashed border-stone-300 hover:border-copper-300 cursor-pointer transition-colors">
               <Camera className="w-5 h-5 text-stone-400" />
-              <span className="text-xs text-stone-500 text-center px-2">{photoName || t('attachPhotoHint')}</span>
-              <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) setPhotoName(file.name); }} />
+              <span className="text-xs text-stone-500 text-center px-2">{photoFile?.name || t('attachPhotoHint')}</span>
+              <input type="file" accept="image/*" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) setPhotoFile(file); }} />
             </label>
           </div>
 

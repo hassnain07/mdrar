@@ -199,8 +199,18 @@ function RiskForm({ risk, projectId, isRtl, t, onSave, onCancel }: {
           <option value="delayed">{t('pm:riskResult_delayed')}</option>
         </select>
       </label>
-      <label className="text-xs text-stone-500 block">{t('pm:riskDescription')}<textarea className="form-input mt-1 min-h-[80px]" value={description.ar} onChange={(e) => description.setAr(e.target.value)} onBlur={() => void description.onArBlur()} dir="rtl" /></label>
-      <label className="text-xs text-stone-500 block">{t('pm:reasonIfDelayed')}<textarea className="form-input mt-1 min-h-[60px]" value={reason.ar} onChange={(e) => reason.setAr(e.target.value)} onBlur={() => void reason.onArBlur()} dir="rtl" /></label>
+      <label className="text-xs text-stone-500 block">{t('pm:riskDescription')}
+        <div className="grid sm:grid-cols-2 gap-3 mt-1">
+          <textarea className="form-input min-h-[80px]" value={description.ar} onChange={(e) => description.setAr(e.target.value)} onBlur={() => void description.onArBlur()} dir="rtl" placeholder="AR" />
+          <textarea className="form-input min-h-[80px]" value={description.en} onChange={(e) => description.setEn(e.target.value)} onBlur={() => void description.onEnBlur()} dir="ltr" placeholder="EN" />
+        </div>
+      </label>
+      <label className="text-xs text-stone-500 block">{t('pm:reasonIfDelayed')}
+        <div className="grid sm:grid-cols-2 gap-3 mt-1">
+          <textarea className="form-input min-h-[60px]" value={reason.ar} onChange={(e) => reason.setAr(e.target.value)} onBlur={() => void reason.onArBlur()} dir="rtl" placeholder="AR" />
+          <textarea className="form-input min-h-[60px]" value={reason.en} onChange={(e) => reason.setEn(e.target.value)} onBlur={() => void reason.onEnBlur()} dir="ltr" placeholder="EN" />
+        </div>
+      </label>
       <div className="border-t border-stone-200 pt-4">
         <div className="flex items-center justify-between mb-3">
           <p className="text-sm font-medium text-navy-700">{t('pm:attachments')}</p>

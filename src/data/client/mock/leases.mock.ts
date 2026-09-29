@@ -1,6 +1,7 @@
 import type { FmUnit, PropertyDocument } from '@/types';
 import { db, persist } from './db';
 import { storageMock } from './storage.mock';
+import { authMock } from './auth.mock';
 import { simulate } from './latency';
 import { genId } from '@/lib/helpers';
 
@@ -21,6 +22,19 @@ export const leasesMock = {
     await simulate();
     const idx = db.fmUnits.findIndex((u) => u.id === id);
     if (idx === -1) throw { code: 'NOT_FOUND', message: `Unit ${id} not found` };
+    // Auto-provision tenant account when occupying with an email
+    if (changes.status === 'occupied' && changes.tenantEmail && !changes.tenantId) {
+      const unit = db.fmUnits[idx];
+      const userId = authMock.createUser({
+        email: changes.tenantEmail,
+        password: '123456',
+        name: changes.tenant ?? changes.tenantEmail,
+        role: 'tenant',
+        tenantPropertyId: unit.propertyId,
+        tenantUnit: changes.tenant ? unit.label : undefined,
+      });
+      changes = { ...changes, tenantId: userId };
+    }
     db.fmUnits[idx] = { ...db.fmUnits[idx], ...changes };
     persist.fmUnits();
     return db.fmUnits[idx];

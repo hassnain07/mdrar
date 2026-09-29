@@ -4,8 +4,9 @@ import { useUi } from '@/state/uiStore';
 import { Brand } from '@/components/shared/Brand';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { NotificationBell } from '@/components/shared/NotificationBell';
-import { LayoutDashboard, LogOut, Menu, X } from 'lucide-react';
+import { LayoutDashboard, LogOut, Menu, X, UserRound } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 
 export function TechnicianLayout({ children }: { children: ReactNode }) {
   const { signOut, session } = useAuth();
@@ -13,10 +14,12 @@ export function TechnicianLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const isRtl = ui.language === 'ar';
 
   const navItems = [
     { to: '/technician', label: isRtl ? 'طلباتي المسندة' : 'My Assigned Requests', icon: LayoutDashboard },
+    { to: '/technician/profile', label: isRtl ? 'الملف الشخصي' : 'Profile', icon: UserRound },
   ];
 
   const isActive = (path: string) => location.pathname === path || (path !== '/technician' && location.pathname.startsWith(path));
@@ -26,7 +29,7 @@ export function TechnicianLayout({ children }: { children: ReactNode }) {
     <>
       <div className="px-3 pt-3 pb-1">
         <p className="px-3 py-2 text-xs text-stone-400 font-medium truncate">{session?.name}</p>
-        <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-navy-700 transition-colors w-full">
+        <button onClick={() => setConfirmLogout(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-navy-700 transition-colors w-full">
           <LogOut className="w-5 h-5" />
           {isRtl ? 'تسجيل الخروج' : 'Log out'}
         </button>
@@ -91,6 +94,16 @@ export function TechnicianLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <ConfirmDialog
+        open={confirmLogout}
+        title={isRtl ? 'تسجيل الخروج' : 'Sign Out'}
+        message={isRtl ? 'هل أنت متأكد أنك تريد تسجيل الخروج؟' : 'Are you sure you want to sign out?'}
+        confirmLabel={isRtl ? 'تسجيل الخروج' : 'Log out'}
+        cancelLabel={isRtl ? 'إلغاء' : 'Cancel'}
+        onConfirm={() => { setConfirmLogout(false); handleLogout(); }}
+        onCancel={() => setConfirmLogout(false)}
+        danger
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useBilingualField } from '@/lib/useBilingualField';
 import { useToast } from '@/state/uiStore';
 import { useDocumentList, useDocumentCategories, useCreateDocument, useUpdateDocument, useDeleteDocument, useRenameDocumentCategory, useAddDocumentCategory, useRemoveDocumentCategory } from '@/queries/useDocuments';
 import { Card } from '@/components/ui/Card';
@@ -306,12 +307,24 @@ export function DocumentsContent({ projectId, isRtl }: { projectId: string; isRt
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => toast(t('pm:docViewToast', { name: isRtl ? doc.name : doc.nameEn }))} className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:view')}>
-                  <Eye className="w-3.5 h-3.5" />
-                </button>
-                <button onClick={() => toast(t('pm:docDownloadToast', { name: isRtl ? doc.name : doc.nameEn }))} className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:download')}>
-                  <Download className="w-3.5 h-3.5" />
-                </button>
+                {doc.url ? (
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer" className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:view')}>
+                    <Eye className="w-3.5 h-3.5" />
+                  </a>
+                ) : (
+                  <button onClick={() => toast(t('pm:docViewToast', { name: isRtl ? doc.name : doc.nameEn }))} className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:view')}>
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                {doc.url ? (
+                  <a href={doc.url} download={isRtl ? doc.name : doc.nameEn} className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:download')}>
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
+                ) : (
+                  <button onClick={() => toast(t('pm:docDownloadToast', { name: isRtl ? doc.name : doc.nameEn }))} className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:download')}>
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button onClick={() => setEditingDoc(doc)} className="p-1.5 rounded-lg text-stone-400 hover:bg-stone-100 hover:text-navy-700 transition-colors" title={t('pm:edit')}>
                   <Pencil className="w-3.5 h-3.5" />
                 </button>
@@ -398,22 +411,21 @@ export function DocumentsContent({ projectId, isRtl }: { projectId: string; isRt
 }
 
 function AddCategoryForm({ isRtl, t, onSave, onCancel }: { isRtl: boolean; t: (k: string) => string; onSave: (name: string, nameEn: string) => void; onCancel: () => void }) {
-  const [name, setName] = useState('');
-  const [nameEn, setNameEn] = useState('');
+  const field = useBilingualField();
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryName')}</label>
-          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} dir="rtl" />
+          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryName')} (AR)</label>
+          <input className="form-input" value={field.ar} onChange={(e) => field.setAr(e.target.value)} onBlur={() => void field.onArBlur()} dir="rtl" />
         </div>
         <div>
-          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryNameEn')}</label>
-          <input className="form-input" value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" />
+          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryNameEn')} (EN)</label>
+          <input className="form-input" value={field.en} onChange={(e) => field.setEn(e.target.value)} onBlur={() => void field.onEnBlur()} dir="ltr" />
         </div>
       </div>
       <div className="flex gap-2 pt-2">
-        <Button onClick={() => onSave(name || nameEn, nameEn || name)} disabled={!name.trim() && !nameEn.trim()} className="flex-1">
+        <Button onClick={() => onSave(field.ar || field.en, field.en || field.ar)} disabled={!field.ar.trim() && !field.en.trim()} className="flex-1">
           <Plus className="w-4 h-4" /> {t('pm:addCategory')}
         </Button>
         <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>
@@ -428,22 +440,21 @@ function RenameCategoryForm({
   currentName: string; currentNameEn: string; defaultName: string; defaultNameEn: string;
   isRtl: boolean; t: (k: string) => string; onSave: (name: string, nameEn: string) => void; onCancel: () => void;
 }) {
-  const [name, setName] = useState(currentName || defaultName);
-  const [nameEn, setNameEn] = useState(currentNameEn || defaultNameEn);
+  const field = useBilingualField(currentName || defaultName, currentNameEn || defaultNameEn);
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
-          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryName')}</label>
-          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} dir="rtl" />
+          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryName')} (AR)</label>
+          <input className="form-input" value={field.ar} onChange={(e) => field.setAr(e.target.value)} onBlur={() => void field.onArBlur()} dir="rtl" />
         </div>
         <div>
-          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryNameEn')}</label>
-          <input className="form-input" value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" />
+          <label className="text-xs text-stone-500 mb-1 block">{t('pm:categoryNameEn')} (EN)</label>
+          <input className="form-input" value={field.en} onChange={(e) => field.setEn(e.target.value)} onBlur={() => void field.onEnBlur()} dir="ltr" />
         </div>
       </div>
       <div className="flex gap-2 pt-2">
-        <Button onClick={() => onSave(name, nameEn)} className="flex-1">{t('pm:saveChanges')}</Button>
+        <Button onClick={() => onSave(field.ar, field.en)} className="flex-1">{t('pm:saveChanges')}</Button>
         <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>
       </div>
     </div>
@@ -451,25 +462,24 @@ function RenameCategoryForm({
 }
 
 function ManualDocForm({ onSave, isRtl, t }: { onSave: (data: Partial<ProjectDocument>, isNew: boolean) => void; isRtl: boolean; t: (k: string) => string }) {
-  const [name, setName] = useState('');
-  const [nameEn, setNameEn] = useState('');
+  const field = useBilingualField();
   return (
     <div className="space-y-3">
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-stone-500 mb-1 block">{t('pm:documentName')} (AR)</label>
-          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} dir="rtl" />
+          <input className="form-input" value={field.ar} onChange={(e) => field.setAr(e.target.value)} onBlur={() => void field.onArBlur()} dir="rtl" />
         </div>
         <div>
           <label className="text-xs text-stone-500 mb-1 block">{t('pm:documentName')} (EN)</label>
-          <input className="form-input" value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" />
+          <input className="form-input" value={field.en} onChange={(e) => field.setEn(e.target.value)} onBlur={() => void field.onEnBlur()} dir="ltr" />
         </div>
       </div>
       <Button
         size="sm"
         className="w-full"
-        disabled={!name.trim() && !nameEn.trim()}
-        onClick={() => onSave({ name: name || nameEn, nameEn: nameEn || name, type: 'pdf', uploadDate: new Date().toISOString().slice(0, 10) }, true)}
+        disabled={!field.ar.trim() && !field.en.trim()}
+        onClick={() => onSave({ name: field.ar || field.en, nameEn: field.en || field.ar, type: 'pdf', uploadDate: new Date().toISOString().slice(0, 10) }, true)}
       >
         <Plus className="w-4 h-4" /> {t('pm:addDocument')}
       </Button>
@@ -478,22 +488,21 @@ function ManualDocForm({ onSave, isRtl, t }: { onSave: (data: Partial<ProjectDoc
 }
 
 function EditDocForm({ doc, isRtl, t, onSave, onCancel }: { doc: ProjectDocument; isRtl: boolean; t: (k: string) => string; onSave: (data: Partial<ProjectDocument>, isNew: boolean) => void; onCancel: () => void }) {
-  const [name, setName] = useState(doc.name);
-  const [nameEn, setNameEn] = useState(doc.nameEn);
+  const field = useBilingualField(doc.name, doc.nameEn);
   return (
     <div className="space-y-4">
       <div className="grid sm:grid-cols-2 gap-3">
         <div>
           <label className="text-xs text-stone-500 mb-1 block">{t('pm:documentName')} (AR)</label>
-          <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} dir="rtl" />
+          <input className="form-input" value={field.ar} onChange={(e) => field.setAr(e.target.value)} onBlur={() => void field.onArBlur()} dir="rtl" />
         </div>
         <div>
           <label className="text-xs text-stone-500 mb-1 block">{t('pm:documentName')} (EN)</label>
-          <input className="form-input" value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" />
+          <input className="form-input" value={field.en} onChange={(e) => field.setEn(e.target.value)} onBlur={() => void field.onEnBlur()} dir="ltr" />
         </div>
       </div>
       <div className="flex gap-2 pt-2">
-        <Button onClick={() => onSave({ name, nameEn }, false)} className="flex-1">{t('pm:saveChanges')}</Button>
+        <Button onClick={() => onSave({ name: field.ar, nameEn: field.en }, false)} className="flex-1">{t('pm:saveChanges')}</Button>
         <Button variant="outline" onClick={onCancel}>{t('cancel')}</Button>
       </div>
     </div>

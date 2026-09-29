@@ -25,6 +25,14 @@ const ROLE_DEST: Record<string, string> = {
   technician:  '/technician',
 };
 
+const PORTAL_PREFIX: Record<string, string> = {
+  management: '/management',
+  tenant: '/tenant',
+  pm_manager: '/pm',
+  pm_viewer: '/pm',
+  technician: '/technician',
+};
+
 export function LoginPage() {
   const { t } = useTranslation();
   const { signIn } = useAuth();
@@ -56,7 +64,9 @@ export function LoginPage() {
     setLoading(true);
     try {
       const s = await signIn(email, password);
-      const dest = from ?? ROLE_DEST[s.role] ?? '/';
+      const roleHome = ROLE_DEST[s.role] ?? '/';
+      const prefix = PORTAL_PREFIX[s.role];
+      const dest = (from && prefix && from.startsWith(prefix)) ? from : roleHome;
       navigate(dest, { replace: true });
     } catch (err: unknown) {
       const e = err as { message?: string };

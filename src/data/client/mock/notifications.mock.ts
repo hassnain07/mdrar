@@ -3,7 +3,7 @@ import { db, persist } from './db';
 import { simulate } from './latency';
 
 function makeNotif(n: Omit<Notification, 'id' | 'time' | 'read'>): Notification {
-  const time = new Date().toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+  const time = new Date().toISOString();
   return { ...n, id: `notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, time, read: false };
 }
 

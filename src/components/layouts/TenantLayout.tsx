@@ -1,24 +1,23 @@
-import { type ReactNode } from 'react';
-import { useStore } from '@/store/StoreContext';
+import { type ReactNode, useState } from 'react';
 import { useAuth } from '@/auth/AuthProvider';
 import { useUi } from '@/state/uiStore';
 import { Brand } from '@/components/shared/Brand';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { NotificationBell } from '@/components/shared/NotificationBell';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { Home, Wrench, MessageSquare, Phone, User, LogOut, Menu, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import { SuiteSwitcher } from '@/components/shared/SuiteSwitcher';
 
 export function TenantLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { state } = useStore();
   const { signOut } = useAuth();
   const { ui } = useUi();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileNav, setMobileNav] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const isRtl = ui.language === 'ar';
 
   const navItems = [
@@ -29,7 +28,6 @@ export function TenantLayout({ children }: { children: ReactNode }) {
   ];
 
   const isActive = (path: string) => location.pathname === path;
-
   const handleLogout = () => { void signOut().then(() => navigate('/', { replace: true })); };
 
   return (
@@ -50,7 +48,7 @@ export function TenantLayout({ children }: { children: ReactNode }) {
             <Link to="/tenant/profile" className="p-2 rounded-xl hover:bg-stone-100 transition-colors">
               <User className="w-5 h-5 text-navy-700" />
             </Link>
-            <button onClick={handleLogout} className="p-2 rounded-xl hover:bg-stone-100 transition-colors">
+            <button onClick={() => setConfirmLogout(true)} className="p-2 rounded-xl hover:bg-stone-100 transition-colors">
               <LogOut className="w-5 h-5 text-stone-400" />
             </button>
           </div>
@@ -134,6 +132,17 @@ export function TenantLayout({ children }: { children: ReactNode }) {
 
       {/* Spacer for bottom nav */}
       <div className="md:hidden h-16" />
+
+      <ConfirmDialog
+        open={confirmLogout}
+        title={isRtl ? 'تسجيل الخروج' : 'Sign Out'}
+        message={isRtl ? 'هل أنت متأكد أنك تريد تسجيل الخروج؟' : 'Are you sure you want to sign out?'}
+        confirmLabel={t('logout')}
+        cancelLabel={isRtl ? 'إلغاء' : 'Cancel'}
+        onConfirm={() => { setConfirmLogout(false); handleLogout(); }}
+        onCancel={() => setConfirmLogout(false)}
+        danger
+      />
     </div>
   );
 }

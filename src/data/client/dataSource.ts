@@ -39,8 +39,8 @@ export interface PaginationParams {
 // ---- Input types (omit server-generated fields) ----
 
 export type CreateRequestInput = Omit<Request, 'id' | 'timeline'>;
-export type CreateUserInput = Omit<User, 'id'>;
-export type NewMessage = Omit<Message, 'id' | 'time'>;
+export type CreateUserInput = Omit<User, 'id'> & { propertyIds?: string[]; password?: string };
+export type NewMessage = Omit<Message, 'id' | 'time' | 'read'>;
 export type CreateProjectInput = Omit<Project, 'id' | 'unitTypes' | 'unitInstances' | 'documentCategoryNames' | 'customDocumentCategories'> & {
   unitTypes?: Omit<ProjectUnit, 'id'>[];
 };
@@ -72,6 +72,7 @@ export interface DataSource {
     signInWithPassword(email: string, password: string): Promise<Session>;
     signOut(): Promise<void>;
     onAuthStateChange(cb: (session: Session | null) => void): () => void;
+    updatePassword(newPassword: string): Promise<void>;
   };
   properties: {
     list(params?: PaginationParams): Promise<PaginatedResult<Property>>;
@@ -91,11 +92,13 @@ export interface DataSource {
   users: {
     list(): Promise<User[]>;
     create(input: CreateUserInput): Promise<User>;
+    provisionTenant(input: { email: string; fullName: string; role: string; tenantPropertyId?: string; tenantUnit?: string; leaseId?: string }): Promise<{ userId: string }>;
   };
   messages: {
     list(threadId: string): Promise<Message[]>;
     send(threadId: string, msg: NewMessage): Promise<Message>;
-    listThreads(): Promise<{ threadId: string; messages: Message[] }[]>;
+    markThreadRead(threadId: string): Promise<void>;
+    listThreads(): Promise<{ threadId: string; messages: Message[]; participant?: { name: string; role: string; unit?: string; propertyName?: string }; lastMessageAt?: string }[]>;
   };
   notifications: {
     list(): Promise<Notification[]>;

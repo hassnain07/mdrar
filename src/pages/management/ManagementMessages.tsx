@@ -1,23 +1,36 @@
 import { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUi } from '@/state/uiStore';
-import { useMessageThreads, useMessages, useSendMessage } from '@/queries/useShared';
+import { useMessageThreads, useMessages, useSendMessage, useMarkThreadRead } from '@/queries/useShared';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { PageSkeleton } from '@/components/ui/PageStates';
 import { Send, MessageSquare, User } from 'lucide-react';
+import { formatRiyadhTime } from '@/lib/formatTime';
 
-// Derive a display name from the threadId (mock userId format: "mock-email@domain.com")
-function displayName(threadId: string): string {
-  return threadId.replace(/^mock-/, '');
+function roleLabel(role: string | undefined, isRtl: boolean): string {
+  if (role === 'tenant') return isRtl ? 'مستأجر' : 'Resident';
+  if (role === 'facility_manager') return isRtl ? 'مدير المرافق' : 'Facility Manager';
+  if (role === 'super_admin') return isRtl ? 'مدير عام' : 'Super Admin';
+  if (role === 'technician') return isRtl ? 'فني' : 'Technician';
+  return role ?? '';
 }
 
-function ChatPane({ threadId, isRtl }: { threadId: string; isRtl: boolean }) {
+function ChatPane({ threadId, participant, isRtl }: {
+  threadId: string;
+  participant?: { name: string; role: string; unit?: string; propertyName?: string };
+  isRtl: boolean;
+}) {
   const { t } = useTranslation();
   const { data: messages = [] } = useMessages(threadId);
   const { mutate: sendMessage, isPending } = useSendMessage();
+  const { mutate: markRead } = useMarkThreadRead();
   const [input, setInput] = useState('');
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (threadId) markRead(threadId);
+  }, [threadId, markRead]);
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -25,27 +38,27 @@ function ChatPane({ threadId, isRtl }: { threadId: string; isRtl: boolean }) {
 
   const handleSend = () => {
     if (!input.trim()) return;
-    sendMessage({
-      threadId,
-      msg: { from: 'manager', text: input.trim(), textEn: input.trim() },
-    });
+    sendMessage({ threadId, msg: { from: 'manager', text: input.trim(), textEn: input.trim() } });
     setInput('');
   };
 
+  const displayName = participant?.name ?? threadId.replace(/^mock-/, '');
+  const subtitle = participant
+    ? `${roleLabel(participant.role, isRtl)}${participant.unit ? ` · ${isRtl ? 'وحدة' : 'Unit'} ${participant.unit}` : ''}`
+    : '';
+
   return (
     <div className="flex flex-col h-full">
-      {/* Thread header */}
       <div className="px-5 py-3 border-b border-stone-200 flex items-center gap-3 shrink-0">
         <div className="w-9 h-9 rounded-full bg-copper-100 flex items-center justify-center">
           <User className="w-4 h-4 text-copper-600" />
         </div>
         <div>
-          <p className="font-medium text-navy-800 text-sm">{displayName(threadId)}</p>
-          <p className="text-xs text-stone-400">{isRtl ? 'مستأجر' : 'Resident'}</p>
+          <p className="font-medium text-navy-800 text-sm">{displayName}</p>
+          {subtitle && <p className="text-xs text-stone-400">{subtitle}</p>}
         </div>
       </div>
 
-      {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4 space-y-3">
         {messages.length === 0 ? (
           <p className="text-center text-stone-400 text-sm py-8">{t('noMessages')}</p>
@@ -61,7 +74,9 @@ function ChatPane({ threadId, isRtl }: { threadId: string; isRtl: boolean }) {
                     : 'bg-stone-100 text-navy-800 rounded-bl-md'
                 }`}>
                   <p className="text-sm leading-relaxed">{text}</p>
-                  <p className={`text-[10px] mt-1 ${isManager ? 'text-copper-100' : 'text-stone-400'}`}>{msg.time}</p>
+                  <p className={`text-[10px] mt-1 ${isManager ? 'text-copper-100' : 'text-stone-400'}`}>
+                    {formatRiyadhTime(msg.time, isRtl)}
+                  </p>
                 </div>
               </div>
             );
@@ -69,7 +84,6 @@ function ChatPane({ threadId, isRtl }: { threadId: string; isRtl: boolean }) {
         )}
       </div>
 
-      {/* Reply input */}
       <div className="px-4 py-3 border-t border-stone-200 flex items-center gap-2 shrink-0">
         <input
           value={input}
@@ -98,7 +112,6 @@ export function ManagementMessages() {
   const { data: threads = [], isLoading } = useMessageThreads();
   const [activeThread, setActiveThread] = useState<string | null>(null);
 
-  // Auto-select first thread
   useEffect(() => {
     if (threads.length > 0 && !activeThread) {
       setActiveThread(threads[0].threadId);
@@ -106,6 +119,8 @@ export function ManagementMessages() {
   }, [threads, activeThread]);
 
   if (isLoading) return <PageSkeleton />;
+
+  const activeThreadData = threads.find((th) => th.threadId === activeThread);
 
   return (
     <div className="animate-fade-in space-y-5">
@@ -125,10 +140,11 @@ export function ManagementMessages() {
         <div className="flex gap-4" style={{ height: 'calc(100vh - 14rem)' }}>
           {/* Thread list */}
           <div className="w-64 shrink-0 flex flex-col gap-1 overflow-y-auto">
-            {threads.map(({ threadId, messages }) => {
+            {threads.map(({ threadId, messages, participant }) => {
               const last = messages[messages.length - 1];
-              const unread = messages.filter((m) => m.from === 'tenant').length;
+              const unread = messages.filter((m) => m.from === 'tenant' && !m.read).length;
               const isActive = activeThread === threadId;
+              const displayName = participant?.name ?? threadId.replace(/^mock-/, '');
               return (
                 <button
                   key={threadId}
@@ -143,15 +159,21 @@ export function ManagementMessages() {
                     <div className="w-7 h-7 rounded-full bg-stone-100 flex items-center justify-center shrink-0">
                       <User className="w-3.5 h-3.5 text-stone-500" />
                     </div>
-                    <p className="text-xs font-medium text-navy-800 truncate flex-1">{displayName(threadId)}</p>
+                    <p className="text-xs font-medium text-navy-800 truncate flex-1">{displayName}</p>
                     {unread > 0 && (
                       <span className="w-4 h-4 rounded-full bg-copper-500 text-white text-[10px] flex items-center justify-center shrink-0">
                         {unread}
                       </span>
                     )}
                   </div>
+                  {participant && (
+                    <p className="text-[10px] text-stone-400 truncate ps-9">
+                      {roleLabel(participant.role, isRtl)}
+                      {participant.unit ? ` · ${isRtl ? 'وحدة' : 'Unit'} ${participant.unit}` : ''}
+                    </p>
+                  )}
                   {last && (
-                    <p className="text-[11px] text-stone-400 truncate ps-9">
+                    <p className="text-[11px] text-stone-400 truncate ps-9 mt-0.5">
                       {isRtl ? last.text : last.textEn}
                     </p>
                   )}
@@ -163,7 +185,7 @@ export function ManagementMessages() {
           {/* Chat pane */}
           <Card className="flex-1 overflow-hidden flex flex-col">
             {activeThread ? (
-              <ChatPane threadId={activeThread} isRtl={isRtl} />
+              <ChatPane threadId={activeThread} participant={activeThreadData?.participant} isRtl={isRtl} />
             ) : (
               <div className="flex-1 flex items-center justify-center text-stone-400 text-sm">
                 {isRtl ? 'اختر محادثة' : 'Select a conversation'}

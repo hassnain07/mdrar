@@ -101,6 +101,12 @@ export function TechnicianRequestDetail() {
               <p className="text-xs text-stone-400 mb-1">{t('description')}</p>
               <p className="text-sm text-navy-700 leading-relaxed">{req.description}</p>
             </div>
+            {req.photo && (
+              <div className="mt-4 pt-4 border-t border-stone-100">
+                <p className="text-xs text-stone-400 mb-1">{t('photo')}</p>
+                <img src={req.photo} alt="" className="rounded-lg border border-stone-200 max-h-64 object-cover" />
+              </div>
+            )}
           </CardBody>
         </Card>
 

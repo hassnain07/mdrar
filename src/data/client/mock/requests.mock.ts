@@ -17,7 +17,7 @@ export const requestsMock = {
     let data = [...db.requests];
     if (filters?.propertyId) data = data.filter((r) => r.propertyId === filters.propertyId);
     if (filters?.status) data = data.filter((r) => r.status === filters.status);
-    if (filters?.tenantId) data = data.filter((r) => r.tenantEmail === filters.tenantId);
+    if (filters?.tenantId) data = data.filter((r) => r.tenantId === filters.tenantId);
     if (filters?.technicianId) data = data.filter((r) => r.technicianId === filters.technicianId);
     const total = data.length;
     const page = params?.page ?? 1;
@@ -34,7 +34,7 @@ export const requestsMock = {
 
   async create(input: CreateRequestInput): Promise<Request> {
     await simulate();
-    const req: Request = { ...input, id: genId(), timeline: [] };
+    const req: Request = { ...input, id: genId(), tenantId: `mock-${input.tenantEmail}`, timeline: [] };
     db.requests.unshift(req);
     persist.requests();
     // Notify management of new request

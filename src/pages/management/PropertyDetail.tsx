@@ -14,6 +14,7 @@ import {
 import { useRequestList } from '@/queries/useRequests';
 import { useToast } from '@/state/uiStore';
 import { useUi } from '@/state/uiStore';
+import { dataSource } from '@/data/client/index';
 import { Building2, Users, Wrench, FileText, ChevronRight, ChevronLeft, MapPin, Plus, Trash2, Upload, X } from 'lucide-react';
 
 export function PropertyDetail() {
@@ -75,17 +76,35 @@ export function PropertyDetail() {
     );
   };
 
-  const handleOccupy = () => {
+  const handleOccupy = async () => {
     if (!occupyingUnit || !occupyTenant.trim()) return;
+    let tenantId: string | undefined;
+    if (occupyEmail.trim()) {
+      try {
+        const { userId } = await dataSource.users.provisionTenant({
+          email: occupyEmail.trim(),
+          fullName: occupyTenant.trim(),
+          role: 'tenant',
+          tenantPropertyId: property.id,
+          tenantUnit: occupyingUnit.label,
+          leaseId: occupyingUnit.id,
+        });
+        tenantId = userId;
+      } catch {
+        showToast(isRtl ? 'تعذر إنشاء حساب المستأجر' : 'Could not create the resident account');
+        return;
+      }
+    }
     updateLease.mutate(
       { id: occupyingUnit.id, changes: {
         status: 'occupied', tenant: occupyTenant.trim(),
         tenantEmail: occupyEmail.trim() || undefined,
+        tenantId,
         rent: occupyRent ? Number(occupyRent) : undefined,
         leaseStart: occupyLeaseStart || undefined,
         leaseEnd: occupyLeaseEnd || undefined,
       }},
-      { onSuccess: () => { setOccupyingUnit(null); resetOccupyForm(); showToast(isRtl ? 'تم تسجيل الإشغال' : 'Unit marked as occupied'); } }
+      { onSuccess: () => { setOccupyingUnit(null); resetOccupyForm(); showToast(isRtl ? 'تم تسجيل الإشغال وإنشاء حساب المستأجر' : 'Unit occupied and resident account created'); } }
     );
   };
 
@@ -154,7 +173,7 @@ export function PropertyDetail() {
                       </span>
                     </div>
                     {u.tenant && <p className="text-xs text-stone-600 truncate">{u.tenant}</p>}
-                    {u.rent && <p className="text-xs text-copper-600 mt-0.5">{u.rent.toLocaleString()} {isRtl ? 'ر.س' : 'SAR'}</p>}
+                    {u.rent && <p className="text-xs text-copper-600 mt-0.5">{u.rent.toLocaleString()} {isRtl ? 'ر.س/شهرياً' : 'SAR/mo'}</p>}
                     {u.leaseStart && u.leaseEnd && <p className="text-xs text-stone-400 mt-0.5">{u.leaseStart} → {u.leaseEnd}</p>}
                     <div className="mt-3 pt-2 border-t border-stone-100">
                       {u.status === 'vacant' ? (
@@ -237,8 +256,15 @@ export function PropertyDetail() {
               <input className="form-input" type="email" value={occupyEmail} onChange={(e) => setOccupyEmail(e.target.value)} />
             </div>
           </div>
+          {occupyEmail.trim() && (
+            <p className="text-xs text-stone-400 bg-stone-50 rounded-lg px-3 py-2">
+              {isRtl
+                ? 'سيتم إنشاء حساب لهذا البريد بكلمة مرور مؤقتة: 123456. أخبر المستأجر بتغييرها بعد أول تسجيل دخول.'
+                : 'A resident account will be created for this email with a temporary password of 123456. Ask them to change it after their first sign-in.'}
+            </p>
+          )}
           <div>
-            <label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'الإيجار السنوي (ر.س)' : 'Annual Rent (SAR)'}</label>
+            <label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'الإيجار الشهري (ر.س)' : 'Monthly Rent (SAR)'}</label>
             <input className="form-input" type="number" min="0" value={occupyRent} onChange={(e) => setOccupyRent(e.target.value)} />
           </div>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -303,17 +329,13 @@ export function PropertiesList() {
   const [name, setName] = useState('');
   const [nameEn, setNameEn] = useState('');
   const [location, setLocation] = useState('');
-  const [units, setUnits] = useState('');
-  const [occupied, setOccupied] = useState('');
   const [accent, setAccent] = useState(ACCENT_COLORS[0]);
   const isRtl = ui.language === 'ar';
-  const resetForm = () => { setName(''); setNameEn(''); setLocation(''); setUnits(''); setOccupied(''); setAccent(ACCENT_COLORS[0]); };
+  const resetForm = () => { setName(''); setNameEn(''); setLocation(''); setAccent(ACCENT_COLORS[0]); };
   const handleSubmit = () => {
-    const u = parseInt(units);
-    const o = parseInt(occupied || '0');
-    if (!name.trim() || !nameEn.trim() || !location.trim() || !u || u < 1) return;
+    if (!name.trim() || !nameEn.trim() || !location.trim()) return;
     createProperty(
-      { name: name.trim(), nameEn: nameEn.trim(), location: location.trim(), units: u, occupied: Math.min(o, u), accent },
+      { name: name.trim(), nameEn: nameEn.trim(), location: location.trim(), units: 0, occupied: 0, accent },
       { onSuccess: () => { setOpen(false); resetForm(); showToast(isRtl ? 'تمت إضافة العقار' : 'Property added'); } }
     );
   };
@@ -338,7 +360,7 @@ export function PropertiesList() {
               </div>
               <div className="grid grid-cols-3 gap-2 mt-5 pt-4 border-t border-stone-100 text-center">
                 <div><p className="text-lg font-serif font-semibold text-navy-800">{p.units}</p><p className="text-[11px] text-stone-400">{t('totalUnits')}</p></div>
-                <div><p className="text-lg font-serif font-semibold text-navy-800">{Math.round((p.occupied / p.units) * 100)}%</p><p className="text-[11px] text-stone-400">{t('occupancyLabel')}</p></div>
+                <div><p className="text-lg font-serif font-semibold text-navy-800">{p.units > 0 ? Math.round((p.occupied / p.units) * 100) : 0}%</p><p className="text-[11px] text-stone-400">{t('occupancyLabel')}</p></div>
                 <div><p className="text-lg font-serif font-semibold text-warning-600">{p.openRequests}</p><p className="text-[11px] text-stone-400">{t('open')}</p></div>
               </div>
             </CardBody>
@@ -352,10 +374,6 @@ export function PropertiesList() {
             <div><label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'اسم العقار (EN)' : 'Property Name (EN)'}</label><input className="form-input" value={nameEn} onChange={(e) => setNameEn(e.target.value)} dir="ltr" /></div>
           </div>
           <div><label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'الموقع' : 'Location'}</label><input className="form-input" value={location} onChange={(e) => setLocation(e.target.value)} /></div>
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div><label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'إجمالي الوحدات' : 'Total Units'}</label><input className="form-input" type="number" min="1" value={units} onChange={(e) => setUnits(e.target.value)} /></div>
-            <div><label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'الوحدات المشغولة' : 'Occupied Units'}</label><input className="form-input" type="number" min="0" value={occupied} onChange={(e) => setOccupied(e.target.value)} /></div>
-          </div>
           <div>
             <label className="text-xs text-stone-500 mb-2 block">{isRtl ? 'لون العقار' : 'Accent Color'}</label>
             <div className="flex gap-2 flex-wrap">
@@ -363,7 +381,7 @@ export function PropertiesList() {
             </div>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button className="flex-1" onClick={handleSubmit} disabled={isPending || !name.trim() || !nameEn.trim() || !location.trim() || !units}>{isPending ? '...' : (isRtl ? 'إضافة العقار' : 'Add Property')}</Button>
+            <Button className="flex-1" onClick={handleSubmit} disabled={isPending || !name.trim() || !nameEn.trim() || !location.trim()}>{isPending ? '...' : (isRtl ? 'إضافة العقار' : 'Add Property')}</Button>
             <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>{isRtl ? 'إلغاء' : 'Cancel'}</Button>
           </div>
         </div>

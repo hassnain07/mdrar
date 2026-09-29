@@ -6,6 +6,7 @@ import { Brand } from '@/components/shared/Brand';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { NotificationBell } from '@/components/shared/NotificationBell';
 import { LayoutDashboard, Building2, Wrench, AlertTriangle, BarChart3, Users, Settings, MessageSquare, Megaphone, Menu, X, LogOut } from 'lucide-react';
+import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { SuiteSwitcher } from '@/components/shared/SuiteSwitcher';
@@ -19,6 +20,7 @@ export function ManagementLayout({ children }: { children: ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
   const isRtl = ui.language === 'ar';
 
   const navItems = [
@@ -45,7 +47,7 @@ export function ManagementLayout({ children }: { children: ReactNode }) {
           <Link to="/management"><Brand size="sm" /></Link>
         </div>
         <div className="px-3 pt-3 pb-1">
-          <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-navy-700 transition-colors w-full">
+          <button onClick={() => setConfirmLogout(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-100 hover:text-navy-700 transition-colors w-full">
             <LogOut className="w-5 h-5" />
             {t('logout')}
           </button>
@@ -84,7 +86,7 @@ export function ManagementLayout({ children }: { children: ReactNode }) {
               </button>
             </div>
             <div className="px-3 pt-3 pb-1">
-              <button onClick={handleLogout} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-100 w-full">
+              <button onClick={() => setConfirmLogout(true)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-stone-500 hover:bg-stone-100 w-full">
                 <LogOut className="w-5 h-5" />
                 {t('logout')}
               </button>
@@ -135,6 +137,16 @@ export function ManagementLayout({ children }: { children: ReactNode }) {
           {children}
         </main>
       </div>
+      <ConfirmDialog
+        open={confirmLogout}
+        title={isRtl ? 'تسجيل الخروج' : 'Sign Out'}
+        message={isRtl ? 'هل أنت متأكد أنك تريد تسجيل الخروج؟' : 'Are you sure you want to sign out?'}
+        confirmLabel={t('logout')}
+        cancelLabel={isRtl ? 'إلغاء' : 'Cancel'}
+        onConfirm={() => { setConfirmLogout(false); handleLogout(); }}
+        onCancel={() => setConfirmLogout(false)}
+        danger
+      />
     </div>
   );
 }

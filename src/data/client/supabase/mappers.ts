@@ -38,7 +38,7 @@ export function mapUser(r: any): User {
 }
 
 export function mapMessage(r: any): Message {
-  return { id: r.id, from: r.sender_role, text: r.text, textEn: r.text_en, time: r.created_at };
+  return { id: r.id, from: r.sender_role, text: r.text, textEn: r.text_en, time: r.created_at, read: r.read ?? false };
 }
 
 export function mapNotification(r: any): Notification {

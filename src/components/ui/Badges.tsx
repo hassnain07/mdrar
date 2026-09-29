@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useStore } from '@/store/StoreContext';
+import { useUi } from '@/state/uiStore';
 import { statusColor, typeColor, priorityColor } from '@/lib/helpers';
 import { Badge } from '@/components/ui/Badge';
 
@@ -19,8 +19,8 @@ export function PriorityBadge({ priority }: { priority: 'normal' | 'high' | 'cri
 }
 
 export function EmergencyBanner() {
-  const { state } = useStore();
-  const isRtl = state.language === 'ar';
+  const { ui } = useUi();
+  const isRtl = ui.language === 'ar';
   return (
     <div className="bg-danger-50 border border-danger-100 rounded-xl px-4 py-3 flex items-center gap-2 text-danger-700">
       <span className="w-2 h-2 rounded-full bg-danger-500 animate-pulse" />

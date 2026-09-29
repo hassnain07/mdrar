@@ -1,13 +1,13 @@
 import { useTranslation } from 'react-i18next';
-import { useStore } from '@/store/StoreContext';
+import { useUi } from '@/state/uiStore';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Phone, Shield, AlertTriangle } from 'lucide-react';
 
 export function EmergencyContact() {
   const { t } = useTranslation();
-  const { state } = useStore();
-  const isRtl = state.language === 'ar';
+  const { ui } = useUi();
+  const isRtl = ui.language === 'ar';
 
   const contacts = [
     { label: t('security'), number: '011 234 5678', icon: Shield, color: 'text-danger-600 bg-danger-50' },

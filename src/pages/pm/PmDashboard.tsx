@@ -2,6 +2,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUi } from '@/state/uiStore';
 import { useProjectList } from '@/queries/useProjects';
+import { useQueries } from '@tanstack/react-query';
+import { dataSource } from '@/data/client/index';
+import { activityKeys } from '@/queries/useActivities';
+import { calcProjectProgress } from '@/data/pmMockData';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -12,7 +16,6 @@ import type { ProjectStatus } from '@/types';
 import {
   BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Cell, Tooltip,
 } from 'recharts';
-import { projectActivities } from '@/data/pmMockData';
 import { Plus, Building2, TrendingUp, CheckCircle2, Home, Search, X } from 'lucide-react';
 
 const statusColors: Record<ProjectStatus, string> = {
@@ -57,9 +60,6 @@ export function PmDashboard() {
 
   const { data: projectsResult, isLoading, isError, refetch } = useProjectList();
 
-  if (isLoading) return <PageSkeleton />;
-  if (isError) return <PageError message={t('errorLoading')} onRetry={() => void refetch()} />;
-
   const allProjects = projectsResult?.data ?? [];
 
   const filtered = allProjects.filter((p) => {
@@ -76,13 +76,37 @@ export function PmDashboard() {
     return nameMatch && fromMatch && toMatch;
   });
 
+  const activityQueries = useQueries({
+    queries: filtered.map((p) => ({
+      queryKey: activityKeys.list(p.id),
+      queryFn: () => dataSource.activities.list(p.id),
+      enabled: !isLoading,
+    })),
+  });
+
+  if (isLoading) return <PageSkeleton />;
+  if (isError) return <PageError message={t('errorLoading')} onRetry={() => void refetch()} />;
+
   const totalProjects = filtered.length;
   const onTrack = filtered.filter((p) => p.status === 'on_track' || p.status === 'completed').length;
   const totalUnits = filtered.reduce((s, p) => s + p.totalUnits, 0);
 
+  const barData = filtered.map((p, i) => {
+    const acts = activityQueries[i]?.data?.data ?? [];
+    return {
+      name: isRtl ? p.name : p.nameEn,
+      progress: acts.length ? calcProjectProgress(acts) : 0,
+      status: p.status,
+    };
+  });
+
+  const avgProgress = barData.length
+    ? Math.round(barData.reduce((s, b) => s + b.progress, 0) / barData.length)
+    : 0;
+
   const statCards = [
     { icon: Building2, label: t('pm:totalProjects'), value: totalProjects, accent: 'text-copper-600', bg: 'bg-copper-50' },
-    { icon: TrendingUp, label: t('pm:avgProgress'), value: `${totalProjects}`, accent: 'text-slateblue-500', bg: 'bg-slateblue-50' },
+    { icon: TrendingUp, label: t('pm:avgProgress'), value: `${avgProgress}%`, accent: 'text-slateblue-500', bg: 'bg-slateblue-50' },
     { icon: CheckCircle2, label: t('pm:projectsOnTrack'), value: onTrack, accent: 'text-success-600', bg: 'bg-success-50' },
     { icon: Home, label: t('pm:totalUnitsPortfolio'), value: totalUnits, accent: 'text-navy-600', bg: 'bg-navy-50' },
   ];
@@ -98,17 +122,6 @@ export function PmDashboard() {
   const globalStartDate = timelineData.length > 0
     ? timelineData.reduce((earliest, p) => p.startDate < earliest ? p.startDate : earliest, timelineData[0].startDate)
     : new Date().toISOString().slice(0, 10);
-
-  const barData = filtered.map((p) => {
-    const acts = projectActivities[p.id] ?? [];
-    const total = acts.reduce((s, a) => s + a.duration, 0);
-    const done = acts.reduce((s, a) => s + (a.duration * a.percentComplete) / 100, 0);
-    return {
-      name: isRtl ? p.name : p.nameEn,
-      progress: total > 0 ? Math.round((done / total) * 100) : 0,
-      status: p.status,
-    };
-  });
 
   const hasFilters = search || fromDate || toDate;
   const clearFilters = () => { setSearch(''); setFromDate(''); setToDate(''); };

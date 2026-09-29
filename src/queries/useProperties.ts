@@ -49,7 +49,11 @@ export function useCreateLease() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: Parameters<typeof dataSource.leases.create>[0]) => dataSource.leases.create(input),
-    onSuccess: (_d, input) => qc.invalidateQueries({ queryKey: leaseKeys.forProperty(input.propertyId) }),
+    onSuccess: (_d, input) => {
+      void qc.invalidateQueries({ queryKey: leaseKeys.forProperty(input.propertyId) });
+      void qc.invalidateQueries({ queryKey: propertyKeys.list() });
+      void qc.invalidateQueries({ queryKey: propertyKeys.detail(input.propertyId) });
+    },
   });
 }
 
@@ -57,7 +61,11 @@ export function useUpdateLease(propertyId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, changes }: { id: string; changes: Partial<FmUnit> }) => dataSource.leases.update(id, changes),
-    onSuccess: () => qc.invalidateQueries({ queryKey: leaseKeys.forProperty(propertyId) }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: leaseKeys.forProperty(propertyId) });
+      void qc.invalidateQueries({ queryKey: propertyKeys.list() });
+      void qc.invalidateQueries({ queryKey: propertyKeys.detail(propertyId) });
+    },
   });
 }
 

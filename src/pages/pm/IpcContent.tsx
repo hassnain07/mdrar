@@ -338,13 +338,21 @@ function IpcForm({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
-    const newAttachments: IpcAttachment[] = Array.from(files).map((file) => ({
-      id: genId('att'),
-      fileName: file.name,
-      fileType: detectFileType(file.name),
-      uploadDate: new Date().toISOString().slice(0, 10),
-    }));
-    setAttachments((prev) => [...prev, ...newAttachments]);
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target?.result as string | undefined;
+        const att: IpcAttachment = {
+          id: genId('att'),
+          fileName: file.name,
+          fileType: detectFileType(file.name),
+          uploadDate: new Date().toISOString().slice(0, 10),
+          url: dataUrl,
+        };
+        setAttachments((prev) => [...prev, att]);
+      };
+      reader.readAsDataURL(file);
+    });
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -438,9 +446,17 @@ function IpcForm({
             {attachments.map((att) => (
               <div key={att.id} className="flex items-center justify-between gap-2 rounded-lg bg-stone-50 px-3 py-1.5">
                 <div className="flex items-center gap-2 min-w-0">
-                  <FileText className="w-4 h-4 text-stone-400 shrink-0" />
-                  <span className="text-xs text-stone-600 truncate">{att.fileName}</span>
-                  <span className="text-[10px] text-stone-400">{att.uploadDate}</span>
+                  {att.fileType === 'image' && att.url ? (
+                    <img src={att.url} alt={att.fileName} className="w-8 h-8 rounded object-cover shrink-0" />
+                  ) : (
+                    <FileText className="w-4 h-4 text-stone-400 shrink-0" />
+                  )}
+                  {att.url ? (
+                    <a href={att.url} target="_blank" rel="noopener noreferrer" download={att.fileName} className="text-xs text-copper-600 hover:underline truncate">{att.fileName}</a>
+                  ) : (
+                    <span className="text-xs text-stone-600 truncate">{att.fileName}</span>
+                  )}
+                  <span className="text-[10px] text-stone-400 shrink-0">{att.uploadDate}</span>
                 </div>
                 <button onClick={() => removeAttachment(att.id)} className="text-stone-400 hover:text-danger-600 shrink-0">
                   <X className="w-3.5 h-3.5" />

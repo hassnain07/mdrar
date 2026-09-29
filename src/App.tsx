@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { lazy, Suspense, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { StoreProvider } from '@/store/StoreContext';
 import { UiProvider, useUi } from '@/state/uiStore';
 import { AuthProvider } from '@/auth/AuthProvider';
 import { ProtectedRoute, RequireRole } from '@/auth/ProtectedRoute';
@@ -47,6 +46,7 @@ const ManagementAnnouncements = lazy(() => import('@/pages/management/Management
 // Technician pages — lazy
 const TechnicianDashboard = lazy(() => import('@/pages/technician/TechnicianDashboard').then((m) => ({ default: m.TechnicianDashboard })));
 const TechnicianRequestDetail = lazy(() => import('@/pages/technician/TechnicianRequestDetail').then((m) => ({ default: m.TechnicianRequestDetail })));
+const TechnicianProfile = lazy(() => import('@/pages/technician/TechnicianProfile').then((m) => ({ default: m.TechnicianProfile })));
 
 // PM pages — lazy (heaviest bundle)
 const PmDashboard = lazy(() => import('@/pages/pm/PmDashboard').then((m) => ({ default: m.PmDashboard })));
@@ -121,6 +121,7 @@ function AppRoutes() {
         {/* Technician routes */}
         <Route path="/technician" element={<RequireRole roles={['technician']}><TechnicianLayout><RouteSuspense><TechnicianDashboard /></RouteSuspense></TechnicianLayout></RequireRole>} />
         <Route path="/technician/request/:id" element={<RequireRole roles={['technician']}><TechnicianLayout><RouteSuspense><TechnicianRequestDetail /></RouteSuspense></TechnicianLayout></RequireRole>} />
+        <Route path="/technician/profile" element={<RequireRole roles={['technician']}><TechnicianLayout><RouteSuspense><TechnicianProfile /></RouteSuspense></TechnicianLayout></RequireRole>} />
 
         <Route path="/finance" element={<RouteSuspense><FinanceComingSoon /></RouteSuspense>} />
         <Route path="*" element={<Navigate to="/" replace />} />
@@ -133,17 +134,15 @@ function AppRoutes() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <StoreProvider>
-        <UiProvider>
-          <AuthProvider>
-            <BrowserRouter>
-              <ErrorBoundary>
-                <AppRoutes />
-              </ErrorBoundary>
-            </BrowserRouter>
-          </AuthProvider>
-        </UiProvider>
-      </StoreProvider>
+      <UiProvider>
+        <AuthProvider>
+          <BrowserRouter>
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
+          </BrowserRouter>
+        </AuthProvider>
+      </UiProvider>
     </QueryClientProvider>
   );
 }

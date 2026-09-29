@@ -10,54 +10,75 @@ function guessFileType(fileName: string): 'image' | 'pdf' | 'video' | 'other' {
   return 'other';
 }
 
-async function getSupabaseSession(): Promise<Session | null> {
-  const { data } = await supabase.auth.getSession();
-  if (!data.session) return null;
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('full_name, role, tenant_property_id, tenant_unit')
-    .eq('id', data.session.user.id)
-    .single();
-  if (error || !profile) return null;
-  const roleMap: Record<string, Session['role']> = {
-    tenant: 'tenant', pm_manager: 'pm_manager', pm_viewer: 'pm_viewer', technician: 'technician',
-  };
-  const role: Session['role'] = roleMap[profile.role] ?? 'management';
-  let technicianId: string | undefined;
-  if (profile.role === 'technician') {
-    const { data: tech } = await supabase.from('technicians').select('id').eq('profile_id', data.session.user.id).single();
-    technicianId = tech?.id;
+// Takes the supabase Session object already in hand — never calls supabase.auth.* again.
+// This is the fix for the GoTrue internal mutex deadlock: calling supabase.auth.getSession()
+// from inside an onAuthStateChange callback acquires the same lock that is already held,
+// causing the promise to hang forever.
+async function buildSessionFromAuthSession(
+  authSession: import('@supabase/supabase-js').Session
+): Promise<Session | null> {
+  try {
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('full_name, role, tenant_property_id, tenant_unit')
+      .eq('id', authSession.user.id)
+      .single();
+    if (error || !profile) return null;
+
+    const roleMap: Record<string, Session['role']> = {
+      tenant: 'tenant', pm_manager: 'pm_manager', pm_viewer: 'pm_viewer', technician: 'technician',
+    };
+    const role: Session['role'] = roleMap[profile.role] ?? 'management';
+
+    let technicianId: string | undefined;
+    if (profile.role === 'technician') {
+      const { data: tech } = await supabase.from('technicians').select('id').eq('profile_id', authSession.user.id).single();
+      technicianId = tech?.id;
+    }
+
+    return {
+      userId: authSession.user.id,
+      email: authSession.user.email ?? '',
+      role,
+      managementRole: (role === 'management' || role === 'technician') ? profile.role : undefined,
+      name: profile.full_name,
+      tenantPropertyId: profile.tenant_property_id ?? undefined,
+      tenantUnit: profile.tenant_unit ?? undefined,
+      technicianId,
+      expiresAt: new Date((authSession.expires_at ?? 0) * 1000).getTime(),
+    };
+  } catch {
+    return null;
   }
-  return {
-    userId: data.session.user.id,
-    email: data.session.user.email ?? '',
-    role,
-    managementRole: (role === 'management' || role === 'technician') ? profile.role : undefined,
-    name: profile.full_name,
-    tenantPropertyId: profile.tenant_property_id ?? undefined,
-    tenantUnit: profile.tenant_unit ?? undefined,
-    technicianId,
-    expiresAt: new Date((data.session.expires_at ?? 0) * 1000).getTime(),
-  };
 }
 
 export const supabaseDataSource: DataSource = {
   auth: {
-    async getSession() { return getSupabaseSession(); },
+    async getSession() {
+      const { data, error } = await supabase.auth.getSession();
+      if (error || !data.session) return null;
+      return buildSessionFromAuthSession(data.session);
+    },
     async signInWithPassword(email, password) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error || !data.session) throw { code: 'UNAUTHORIZED', message: error?.message ?? 'Sign in failed' };
-      const session = await getSupabaseSession();
+      const session = await buildSessionFromAuthSession(data.session);
       if (!session) throw { code: 'UNAUTHORIZED', message: 'No profile found for this account' };
       return session;
     },
     async signOut() { await supabase.auth.signOut(); },
     onAuthStateChange(cb) {
-      const { data } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
         if (!session) { cb(null); return; }
-        cb(await getSupabaseSession());
+        setTimeout(() => {
+          buildSessionFromAuthSession(session).then(cb).catch(() => cb(null));
+        }, 0);
       });
       return () => data.subscription.unsubscribe();
+    },
+    async updatePassword(newPassword: string) {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) throw { code: 'VALIDATION', message: error.message };
     },
   },
 
@@ -128,6 +149,7 @@ export const supabaseDataSource: DataSource = {
       if (changes.priority !== undefined) patch.priority = changes.priority;
       if (changes.technicianId !== undefined) patch.technician_id = changes.technicianId;
       if (changes.description !== undefined) patch.description = changes.description;
+      if (changes.photo !== undefined) patch.photo_url = changes.photo;
       const { data, error } = await supabase.from('requests').update(patch).eq('id', id).select().single();
       M.throwIfError(error);
       const { data: tl } = await supabase.from('request_timeline_events').select('*').eq('request_id', id).order('created_at');
@@ -165,8 +187,24 @@ export const supabaseDataSource: DataSource = {
         ...r, properties: (pmRows ?? []).filter((p) => p.profile_id === r.id).map((p) => p.property_id),
       }));
     },
-    async create() {
-      throw { code: 'VALIDATION', message: 'Create users via Settings → Invite User (uses the invite-user Edge Function).' };
+    async create(input: import('@/data/client/dataSource').CreateUserInput) {
+      const { data, error } = await supabase.functions.invoke('provision-user', {
+        body: { email: input.email, fullName: input.name, role: input.role, password: input.password },
+      });
+      if (error) throw { code: 'VALIDATION', message: error.message };
+      const userId = (data as { userId: string }).userId;
+      if (input.propertyIds?.length) {
+        const { error: pmErr } = await supabase
+          .from('property_managers')
+          .insert(input.propertyIds.map((pid: string) => ({ property_id: pid, profile_id: userId })));
+        if (pmErr) throw { code: 'VALIDATION', message: pmErr.message };
+      }
+      return { ...input, id: userId };
+    },
+    async provisionTenant(input) {
+      const { data, error } = await supabase.functions.invoke('provision-user', { body: input });
+      if (error) throw { code: 'VALIDATION', message: error.message };
+      return data as { userId: string };
     },
   },
 
@@ -183,7 +221,20 @@ export const supabaseDataSource: DataSource = {
         sender_role: msg.from, text: msg.text, text_en: msg.textEn,
       }).select().single();
       M.throwIfError(error);
+      if (msg.from !== 'tenant') {
+        await supabase.from('notifications').insert({
+          recipient_id: threadId, title: 'رد جديد من الإدارة', body: msg.text.slice(0, 60),
+        });
+      }
       return M.mapMessage(data);
+    },
+    async markThreadRead(threadId) {
+      const { error } = await supabase.from('messages')
+        .update({ read: true })
+        .eq('thread_id', threadId)
+        .eq('sender_role', 'tenant')
+        .eq('read', false);
+      M.throwIfError(error);
     },
     async listThreads() {
       const { data, error } = await supabase.from('messages').select('*').order('created_at');
@@ -193,9 +244,32 @@ export const supabaseDataSource: DataSource = {
         if (!byThread.has(m.thread_id)) byThread.set(m.thread_id, []);
         byThread.get(m.thread_id)!.push(m);
       });
-      return Array.from(byThread.entries()).map(([threadId, messages]) => ({
-        threadId, messages: messages.map(M.mapMessage),
-      }));
+      const threadIds = Array.from(byThread.keys());
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, role, tenant_property_id, tenant_unit')
+        .in('id', threadIds);
+      const { data: properties } = await supabase.from('properties').select('id, name, name_en');
+      const profileMap = new Map((profiles ?? []).map((p: any) => [p.id, p]));
+      const propertyMap = new Map((properties ?? []).map((p: any) => [p.id, p]));
+      return threadIds
+        .map((threadId) => {
+          const messages = byThread.get(threadId)!.map(M.mapMessage);
+          const profile = profileMap.get(threadId) as any;
+          const property = profile?.tenant_property_id ? propertyMap.get(profile.tenant_property_id) as any : undefined;
+          return {
+            threadId,
+            messages,
+            participant: profile ? {
+              name: profile.full_name,
+              role: profile.role,
+              unit: profile.tenant_unit ?? undefined,
+              propertyName: property?.name_en ?? undefined,
+            } : undefined,
+            lastMessageAt: messages[messages.length - 1]?.time,
+          };
+        })
+        .sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
     },
   },
 

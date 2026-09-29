@@ -133,6 +133,7 @@ export interface ProjectDocument {
   categoryId: string;
   categoryName: string;
   categoryNameEn: string;
+  url?: string;
 }
 
 export interface ProjectRisk {
@@ -162,6 +163,7 @@ export interface IpcAttachment {
   fileName: string;
   fileType: 'image' | 'pdf' | 'video' | 'other';
   uploadDate: string;
+  url?: string;
 }
 
 export interface IpcEntry {
@@ -205,6 +207,7 @@ export interface Request {
   unit: string;
   tenant: string;
   tenantEmail: string;
+  tenantId?: string;
   type: RequestType;
   category: Category;
   description: string;
@@ -262,6 +265,7 @@ export interface FmUnit {
   status: 'occupied' | 'vacant';
   tenant?: string;
   tenantEmail?: string;
+  tenantId?: string;
   rent?: number;
   leaseStart?: string;
   leaseEnd?: string;
@@ -292,6 +296,7 @@ export interface Message {
   text: string;
   textEn: string;
   time: string;
+  read: boolean;
 }
 
 export interface Preferences {

@@ -4,6 +4,7 @@ import { useUi } from '@/state/uiStore';
 import { useAuth } from '@/auth/AuthProvider';
 import { useRequestList } from '@/queries/useRequests';
 import { useAnnouncementList } from '@/queries/useAnnouncements';
+import { useProperty } from '@/queries/useProperties';
 import { Card, CardBody } from '@/components/ui/Card';
 import { StatusBadge, TypeBadge } from '@/components/ui/Badges';
 import { PageSkeleton, PageError } from '@/components/ui/PageStates';
@@ -18,11 +19,12 @@ export function TenantHome() {
   const Arrow = isRtl ? ChevronLeft : ChevronRight;
 
   const { data: requestsResult, isLoading, isError, refetch } = useRequestList(
-    session?.tenantPropertyId ? { tenantId: session.email } : undefined,
+    session?.userId ? { tenantId: session.userId } : undefined,
   );
   const { data: announcements = [] } = useAnnouncementList(
     session?.tenantPropertyId ?? undefined,
   );
+  const { data: property } = useProperty(session?.tenantPropertyId ?? '');
 
   if (isLoading) return <PageSkeleton />;
   if (isError) return <PageError message={t('errorLoading')} onRetry={() => void refetch()} />;
@@ -95,10 +97,12 @@ export function TenantHome() {
             </div>
             <div>
               <p className="text-xs text-stone-400 mb-0.5">{t('property')}</p>
-              <p className="font-serif font-semibold text-navy-800">{isRtl ? 'ساحة جازلي' : 'Jazly Plaza'}</p>
+              <p className="font-serif font-semibold text-navy-800">
+                {property ? (isRtl ? property.name : property.nameEn) : '—'}
+              </p>
               <p className="text-xs text-stone-400 flex items-center gap-1 mt-0.5">
                 <MapPin className="w-3 h-3" />
-                {isRtl ? 'حي الملقا، الرياض' : 'Al-Malqa, Riyadh'}
+                {property?.location ?? ''}
               </p>
             </div>
           </CardBody>
@@ -110,8 +114,7 @@ export function TenantHome() {
             </div>
             <div>
               <p className="text-xs text-stone-400 mb-0.5">{t('unit')}</p>
-              <p className="font-serif font-semibold text-navy-800">{session?.tenantUnit ?? 'A-204'}</p>
-              <p className="text-xs text-stone-400 mt-0.5">{isRtl ? 'الطابق الثاني' : 'Second floor'}</p>
+              <p className="font-serif font-semibold text-navy-800">{session?.tenantUnit ?? '—'}</p>
             </div>
           </CardBody>
         </Card>

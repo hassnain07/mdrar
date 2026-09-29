@@ -6,6 +6,7 @@ import { useMessages, useSendMessage } from '@/queries/useShared';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card } from '@/components/ui/Card';
 import { Send, Circle } from 'lucide-react';
+import { formatRiyadhTime } from '@/lib/formatTime';
 
 export function ContactManager() {
   const { t } = useTranslation();
@@ -76,7 +77,7 @@ export function ContactManager() {
                       : 'bg-stone-100 text-navy-800 rounded-bl-md'
                   }`}>
                     <p className="text-sm leading-relaxed">{text}</p>
-                    <p className={`text-[10px] mt-1 ${isTenant ? 'text-copper-100' : 'text-stone-400'}`}>{msg.time}</p>
+                    <p className={`text-[10px] mt-1 ${isTenant ? 'text-copper-100' : 'text-stone-400'}`}>{formatRiyadhTime(msg.time, isRtl)}</p>
                   </div>
                 </div>
               );

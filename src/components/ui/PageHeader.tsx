@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useStore } from '@/store/StoreContext';
+import { useUi } from '@/state/uiStore';
 
 interface PageHeaderProps {
   title: string;
@@ -10,8 +10,8 @@ interface PageHeaderProps {
 }
 
 export function PageHeader({ title, subtitle, backTo, children }: PageHeaderProps) {
-  const { state } = useStore();
-  const isRtl = state.language === 'ar';
+  const { ui } = useUi();
+  const isRtl = ui.language === 'ar';
   const BackIcon = isRtl ? ChevronRight : ChevronLeft;
 
   return (

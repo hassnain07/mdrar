@@ -93,7 +93,7 @@ export function NotificationBell() {
               {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center text-stone-400 text-sm">{t('noNotifications')}</div>
               ) : (
-                notifications.map((n) => (
+                (isTenant ? notifications.slice(0, 3) : notifications).map((n) => (
                   <div key={n.id} className={`px-4 py-3 border-b border-stone-100 last:border-b-0 ${!n.read ? 'bg-copper-50/40' : ''}`}>
                     <div className="flex items-start gap-2.5">
                       <div className={`mt-0.5 p-1.5 rounded-lg ${n.emergency ? 'bg-danger-100' : 'bg-stone-100'}`}>

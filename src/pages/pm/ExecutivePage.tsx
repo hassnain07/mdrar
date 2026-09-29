@@ -2,7 +2,9 @@ import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-import { useStore, useToast } from '@/store/StoreContext';
+import { useToast } from '@/state/uiStore';
+import { useIpcList } from '@/queries/useIpc';
+import { useRiskList } from '@/queries/useRisks';
 import { generateExecutiveReport, type ReportLabels } from '@/lib/reportGenerator';
 import { calcProjectProgress } from '@/data/pmMockData';
 import type { Project, ProjectActivity, ActivityStatus, IpcEntry, IpcStatus, ProjectRisk, RiskResult } from '@/types';
@@ -85,10 +87,14 @@ export function ExecutivePage({
   isRtl: boolean;
 }) {
   const { t } = useTranslation();
-  const { state } = useStore();
   const toast = useToast();
   const sarLabel = isRtl ? 'ر.س' : 'SAR';
   const months = isRtl ? monthNamesAr : monthNamesEn;
+
+  const { data: ipcResult } = useIpcList(project.id);
+  const { data: riskResult } = useRiskList(project.id);
+  const allIpcEntries = ipcResult?.data ?? [];
+  const risks = riskResult?.data ?? [];
 
   const [filterMode, setFilterMode] = useState<DateFilterMode>('date');
   const [dateFrom, setDateFrom] = useState('');
@@ -110,8 +116,6 @@ export function ExecutivePage({
 
   const overallProgress = calcProjectProgress(activities);
 
-  // IPC entries — live from store, updates immediately when PM adds/edits
-  const allIpcEntries = state.projectIpcEntries[project.id] || [];
   const contractorIpc = allIpcEntries
     .filter((e) => e.direction === 'incoming' && e.source === 'contractor')
     .sort((a, b) => (b.dateLogged || '').localeCompare(a.dateLogged || ''))
@@ -124,8 +128,6 @@ export function ExecutivePage({
     .filter((e) => e.direction === 'outgoing')
     .sort((a, b) => (b.dateLogged || '').localeCompare(a.dateLogged || ''))
     .slice(0, 2);
-
-  const risks = state.projectRisks[project.id] || [];
 
   const ipcSections = [
     { key: 'contractor', label: t('pm:execIpcContractor'), icon: Building2, entries: contractorIpc },

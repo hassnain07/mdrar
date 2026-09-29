@@ -1,20 +1,28 @@
 import { useTranslation } from 'react-i18next';
-import { useStore } from '@/store/StoreContext';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useUi } from '@/state/uiStore';
+import { useRequest } from '@/queries/useRequests';
+import { usePropertyList } from '@/queries/useProperties';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody } from '@/components/ui/Card';
 import { StatusBadge, TypeBadge } from '@/components/ui/Badges';
 import { Button, LinkButton } from '@/components/ui/Button';
-import { Clock, MessageSquare, ImageOff } from 'lucide-react';
+import { PageSkeleton } from '@/components/ui/PageStates';
+import { Clock, MessageSquare } from 'lucide-react';
 import { propertyName } from '@/lib/helpers';
 
 export function TenantRequestDetail() {
   const { t } = useTranslation();
-  const { state } = useStore();
+  const { ui } = useUi();
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const req = state.requests.find((r) => r.id === id);
+  const { data: req, isLoading } = useRequest(id ?? '');
+  const { data: propertiesResult } = usePropertyList();
+  const properties = propertiesResult?.data ?? [];
+
+  if (isLoading) return <PageSkeleton />;
+
   if (!req) {
     return (
       <div className="text-center py-12">
@@ -46,7 +54,7 @@ export function TenantRequestDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-xs text-stone-400 mb-1">{t('property')}</p>
-                <p className="text-sm font-medium text-navy-700">{propertyName(req.propertyId, state.properties, state.language)}</p>
+                <p className="text-sm font-medium text-navy-700">{propertyName(req.propertyId, properties, ui.language)}</p>
               </div>
               <div>
                 <p className="text-xs text-stone-400 mb-1">{t('unit')}</p>
@@ -68,10 +76,7 @@ export function TenantRequestDetail() {
             {req.photo && (
               <div>
                 <p className="text-xs text-stone-400 mb-1">{t('photo')}</p>
-                <div className="flex items-center gap-2 text-sm text-stone-500">
-                  <ImageOff className="w-4 h-4" />
-                  {req.photo}
-                </div>
+                <img src={req.photo} alt="" className="rounded-lg border border-stone-200 max-h-64 object-cover" />
               </div>
             )}
           </CardBody>
@@ -85,11 +90,11 @@ export function TenantRequestDetail() {
               {t('timeline')}
             </h3>
             <div className="space-y-4">
-              {req.timeline.map((event, i) => (
+              {(req.timeline ?? []).map((event, i) => (
                 <div key={event.id} className="flex gap-3">
                   <div className="flex flex-col items-center">
-                    <div className={`w-2.5 h-2.5 rounded-full ${i === req.timeline.length - 1 ? 'bg-copper-500' : 'bg-stone-300'} shrink-0 mt-1`} />
-                    {i < req.timeline.length - 1 && <div className="w-px flex-1 bg-stone-200 mt-1" />}
+                    <div className={`w-2.5 h-2.5 rounded-full ${i === (req.timeline?.length ?? 0) - 1 ? 'bg-copper-500' : 'bg-stone-300'} shrink-0 mt-1`} />
+                    {i < (req.timeline?.length ?? 0) - 1 && <div className="w-px flex-1 bg-stone-200 mt-1" />}
                   </div>
                   <div className="pb-1">
                     <p className="text-sm font-medium text-navy-700">{event.label}</p>
@@ -101,7 +106,6 @@ export function TenantRequestDetail() {
           </CardBody>
         </Card>
 
-        {/* Contact manager */}
         <Button variant="outline" size="lg" className="w-full" onClick={() => navigate('/tenant/contact')}>
           <MessageSquare className="w-4 h-4" />
           {t('messageManager')}

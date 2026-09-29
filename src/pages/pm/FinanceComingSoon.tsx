@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { useStore } from '@/store/StoreContext';
+import { useUi } from '@/state/uiStore';
 import { useNavigate } from 'react-router-dom';
 import { Brand } from '@/components/shared/Brand';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
@@ -9,13 +9,12 @@ import { TrendingUp, ArrowLeft, ArrowRight, BarChart3, DollarSign, Wallet } from
 
 export function FinanceComingSoon() {
   const { t } = useTranslation();
-  const { state, dispatch } = useStore();
+  const { ui } = useUi();
   const navigate = useNavigate();
-  const isRtl = state.language === 'ar';
+  const isRtl = ui.language === 'ar';
   const BackIcon = isRtl ? ArrowRight : ArrowLeft;
 
   const handleBack = () => {
-    dispatch({ type: 'SET_SUITE', suite: 'hub' });
     navigate('/');
   };
 

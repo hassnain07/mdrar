@@ -1,14 +1,22 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUi } from '@/state/uiStore';
 import { useToast } from '@/state/uiStore';
-import { useUsers } from '@/queries/useShared';
+import { useUsers, useCreateUser } from '@/queries/useShared';
 import { usePropertyList } from '@/queries/useProperties';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { Card, CardBody } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { Button } from '@/components/ui/Button';
+import { Modal } from '@/components/ui/Modal';
 import { PageSkeleton } from '@/components/ui/PageStates';
-import { Mail, Building2 } from 'lucide-react';
+import { Mail, Building2, Copy, Check } from 'lucide-react';
 import type { ManagementRole } from '@/types';
+
+function genPassword(len = 10): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
+  return Array.from({ length: len }, () => chars[Math.floor(Math.random() * chars.length)]).join('');
+}
 
 export function UsersPage() {
   const { t } = useTranslation();
@@ -19,6 +27,15 @@ export function UsersPage() {
   const { data: users = [], isLoading: usersLoading } = useUsers();
   const { data: propResult, isLoading: propLoading } = usePropertyList();
   const properties = propResult?.data ?? [];
+  const { mutateAsync: createUser, isPending } = useCreateUser();
+
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<ManagementRole>('facility_manager');
+  const [selectedProps, setSelectedProps] = useState<string[]>([]);
+  const [createdPassword, setCreatedPassword] = useState('');
+  const [copied, setCopied] = useState(false);
 
   const roleLabel = (r: ManagementRole) => t(r === 'technician' ? 'technicianRole' : r);
 
@@ -27,18 +44,38 @@ export function UsersPage() {
     return p ? (isRtl ? p.name : p.nameEn) : id;
   };
 
+  const toggleProp = (id: string) =>
+    setSelectedProps((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+
+  const resetForm = () => { setName(''); setEmail(''); setRole('facility_manager'); setSelectedProps([]); setCreatedPassword(''); setCopied(false); };
+
+  const handleCreate = async () => {
+    if (!name.trim() || !email.trim()) return;
+    const password = genPassword();
+    try {
+      await createUser({ name: name.trim(), email: email.trim(), role, properties: selectedProps, propertyIds: selectedProps, password });
+      setCreatedPassword(password);
+    } catch (err) {
+      showToast((err as { message?: string })?.message ?? (isRtl ? 'تعذر إنشاء المستخدم' : 'Could not create user'));
+    }
+  };
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(createdPassword);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   if (usersLoading || propLoading) return <PageSkeleton />;
 
   return (
     <div className="animate-fade-in">
       <PageHeader title={t('usersTitle')} subtitle={`${users.length} ${t('users')}`}>
-        <button
-          onClick={() => showToast(isRtl ? 'لإضافة مستخدم، استخدم لوحة Supabase → Authentication → Invite User' : 'To add a user, use Supabase Dashboard → Authentication → Invite User')}
-          className="btn-outline text-sm px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50"
-        >
+        <Button size="sm" onClick={() => { resetForm(); setOpen(true); }}>
           {t('addUser')}
-        </button>
+        </Button>
       </PageHeader>
+
       <Card>
         <CardBody className="p-0 overflow-hidden">
           <div className="hidden md:block overflow-x-auto">
@@ -90,6 +127,75 @@ export function UsersPage() {
           </div>
         </CardBody>
       </Card>
+
+      <Modal open={open} onClose={() => { setOpen(false); resetForm(); }} title={isRtl ? 'إضافة مستخدم جديد' : 'Add New User'} className="max-w-lg">
+        {createdPassword ? (
+          <div className="space-y-4">
+            <div className="bg-success-50 border border-success-200 rounded-xl p-4 text-center">
+              <p className="text-sm font-medium text-success-700 mb-1">{isRtl ? 'تم إنشاء الحساب بنجاح' : 'Account created successfully'}</p>
+              <p className="text-xs text-success-600">{isRtl ? 'شارك كلمة المرور المؤقتة بشكل آمن مع المستخدم الجديد' : 'Share this temporary password securely with the new user'}</p>
+            </div>
+            <div>
+              <p className="text-xs text-stone-500 mb-1">{isRtl ? 'كلمة المرور المؤقتة' : 'Temporary Password'}</p>
+              <div className="flex items-center gap-2 bg-stone-50 border border-stone-200 rounded-lg px-3 py-2">
+                <code className="flex-1 text-sm font-mono text-navy-800 tracking-wider">{createdPassword}</code>
+                <button onClick={handleCopy} className="p-1.5 rounded-lg hover:bg-stone-200 transition-colors text-stone-500">
+                  {copied ? <Check className="w-4 h-4 text-success-600" /> : <Copy className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-stone-400 mt-1">{isRtl ? 'يجب على المستخدم تغييرها بعد أول تسجيل دخول' : 'The user should change this after their first sign-in'}</p>
+            </div>
+            <Button className="w-full" onClick={() => { setOpen(false); resetForm(); showToast(isRtl ? 'تمت إضافة المستخدم' : 'User added'); }}>
+              {isRtl ? 'تم' : 'Done'}
+            </Button>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'الاسم الكامل' : 'Full Name'} *</label>
+                <input className="form-input" value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div>
+                <label className="text-xs text-stone-500 mb-1 block">{isRtl ? 'البريد الإلكتروني' : 'Email'} *</label>
+                <input className="form-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} dir="ltr" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 mb-1 block">{t('role')}</label>
+              <select className="form-input" value={role} onChange={(e) => setRole(e.target.value as ManagementRole)}>
+                <option value="facility_manager">{t('facility_manager')}</option>
+                <option value="technician">{t('technicianRole')}</option>
+                <option value="owner">{t('owner')}</option>
+                <option value="super_admin">{t('super_admin')}</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-stone-500 mb-2 block">{t('assignedProperties')}</label>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {properties.map((p) => (
+                  <label key={p.id} className="flex items-center gap-2 text-xs text-navy-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedProps.includes(p.id)}
+                      onChange={() => toggleProp(p.id)}
+                      className="rounded"
+                    />
+                    {isRtl ? p.name : p.nameEn}
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-stone-400 mt-1">{isRtl ? 'اتركه فارغاً للوصول لجميع العقارات' : 'Leave empty for access to all properties'}</p>
+            </div>
+            <div className="flex gap-2 pt-2">
+              <Button className="flex-1" onClick={handleCreate} disabled={isPending || !name.trim() || !email.trim()}>
+                {isPending ? '...' : (isRtl ? 'إنشاء الحساب' : 'Create Account')}
+              </Button>
+              <Button variant="outline" onClick={() => { setOpen(false); resetForm(); }}>{isRtl ? 'إلغاء' : 'Cancel'}</Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

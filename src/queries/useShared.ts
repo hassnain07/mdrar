@@ -79,6 +79,17 @@ export function useMessageThreads() {
   });
 }
 
+export function useMarkThreadRead() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (threadId: string) => dataSource.messages.markThreadRead(threadId),
+    onSuccess: (_data, threadId) => {
+      qc.invalidateQueries({ queryKey: messageKeys.thread(threadId) });
+      qc.invalidateQueries({ queryKey: messageKeys.threads });
+    },
+  });
+}
+
 // ---- Preferences ----
 export const preferenceKeys = { all: ['preferences'] as const };
 
