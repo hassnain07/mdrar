@@ -4,14 +4,14 @@ import { useUi } from '@/state/uiStore';
 import { Brand } from '@/components/shared/Brand';
 import { LanguageSwitcher } from '@/components/shared/LanguageSwitcher';
 import { SuiteSwitcher } from '@/components/shared/SuiteSwitcher';
-import { LayoutDashboard, Plus, Menu, X, LogOut } from 'lucide-react';
+import { LayoutDashboard, Plus, User, Menu, X, LogOut } from 'lucide-react';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { useTranslation } from 'react-i18next';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 export function PmLayout({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
-  const { signOut } = useAuth();
+  const { signOut, session } = useAuth();
   const { ui } = useUi();
   const location = useLocation();
   const navigate = useNavigate();
@@ -21,7 +21,8 @@ export function PmLayout({ children }: { children: ReactNode }) {
 
   const navItems = [
     { to: '/pm/dashboard', label: t('pm:pmDashboard'), icon: LayoutDashboard },
-    { to: '/pm/add-project', label: t('pm:addProject'), icon: Plus },
+    ...(session?.role === 'pm_manager' ? [{ to: '/pm/add-project', label: t('pm:addProject'), icon: Plus }] : []),
+    { to: '/pm/profile', label: isRtl ? 'الملف الشخصي' : 'Profile', icon: User },
   ];
 
   const isActive = (path: string) => location.pathname === path;

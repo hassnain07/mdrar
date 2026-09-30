@@ -27,6 +27,7 @@ async function buildSessionFromAuthSession(
 
     const roleMap: Record<string, Session['role']> = {
       tenant: 'tenant', pm_manager: 'pm_manager', pm_viewer: 'pm_viewer', technician: 'technician',
+      project_manager: 'pm_manager',
     };
     const role: Session['role'] = roleMap[profile.role] ?? 'management';
 
@@ -179,7 +180,7 @@ export const supabaseDataSource: DataSource = {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, email, role')
-        .in('role', ['super_admin', 'facility_manager', 'technician', 'owner'])
+        .in('role', ['super_admin', 'facility_manager', 'technician', 'owner', 'pm_manager'])
         .order('full_name');
       M.throwIfError(error);
       const { data: pmRows } = await supabase.from('property_managers').select('profile_id, property_id');

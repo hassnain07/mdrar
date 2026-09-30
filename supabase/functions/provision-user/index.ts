@@ -14,7 +14,6 @@ function json(body: unknown, status = 200) {
 }
 
 Deno.serve(async (req) => {
-  // Answer the browser's preflight before doing anything else
   if (req.method === 'OPTIONS') {
     return new Response('ok', { status: 200, headers: corsHeaders });
   }
@@ -25,6 +24,7 @@ Deno.serve(async (req) => {
     const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
+    // Verify caller is authenticated and has an allowed role
     const callerClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: authHeader ?? '' } },
     });
@@ -42,23 +42,46 @@ Deno.serve(async (req) => {
     if (!email || !role) return json({ error: 'email and role are required' }, 400);
 
     const admin = createClient(supabaseUrl, serviceKey);
+    const finalPassword = password ?? '123456';
 
-    // Look up the existing profile by email instead of listing all auth users
-    // (listUsers() is paginated and would miss users past the first page)
+    // Step 1: find existing auth user by scanning profiles (fast path)
+    // then falling back to listUsers if not found
+    let userId: string | undefined;
+
     const { data: existingProfile } = await admin
-      .from('profiles').select('id').ilike('email', email).maybeSingle();
-    let userId = existingProfile?.id as string | undefined;
+      .from('profiles').select('id').ilike('email', email).limit(1).maybeSingle();
 
-    if (!userId) {
+    if (existingProfile?.id) {
+      // User already fully exists — just update password and profile below
+      userId = existingProfile.id;
+      await admin.auth.admin.updateUserById(userId, { password: finalPassword });
+    } else {
+      // Step 2: try to create the auth user
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
         email,
-        password: password ?? '123456',
+        password: finalPassword,
         email_confirm: true,
+        user_metadata: { full_name: fullName ?? email, role },
       });
-      if (createErr) return json({ error: createErr.message }, 400);
-      userId = created.user.id;
+
+      if (!createErr) {
+        // Newly created — trigger handle_new_auth_user will insert the profile row
+        userId = created.user.id;
+      } else {
+        // Email already exists in auth.users but has no profile row
+        // Scan listUsers to find the id (paginated but only runs in this edge case)
+        const { data: list } = await admin.auth.admin.listUsers({ perPage: 1000 });
+        const found = list?.users?.find(
+          (u) => u.email?.toLowerCase() === email.toLowerCase()
+        );
+        if (!found) return json({ error: createErr.message }, 400);
+        userId = found.id;
+        await admin.auth.admin.updateUserById(userId, { password: finalPassword });
+      }
     }
 
+    // Step 3: upsert the profile with the correct role/name
+    // (covers both the existing-user case and the orphaned-auth-user case)
     const { error: upsertErr } = await admin.from('profiles').upsert({
       id: userId,
       full_name: fullName ?? email,
@@ -68,6 +91,9 @@ Deno.serve(async (req) => {
       tenant_unit: tenantUnit ?? null,
     });
     if (upsertErr) return json({ error: upsertErr.message }, 400);
+
+    // Step 4: also ensure a preferences row exists
+    await admin.from('preferences').upsert({ profile_id: userId });
 
     if (leaseId) {
       await admin.from('leases').update({ tenant_id: userId }).eq('id', leaseId);

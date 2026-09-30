@@ -10,12 +10,7 @@ import { Building2, Home, HardHat, Wrench } from 'lucide-react';
 
 type Portal = 'management' | 'tenant' | 'pm' | 'technician';
 
-const HINTS: Record<Portal, { email: string; password: string }> = {
-  management: { email: 'khalid@mdrar.sa', password: 'password' },
-  tenant:     { email: 'm.alotaibi@example.com', password: 'password' },
-  pm:         { email: 'pm@mdrar.sa', password: 'password' },
-  technician: { email: 'salem@mdrar.sa', password: 'password' },
-};
+
 
 const ROLE_DEST: Record<string, string> = {
   management:  '/management',
@@ -46,15 +41,15 @@ export function LoginPage() {
   const from = locationState?.from?.pathname ?? null;
 
   const [portal, setPortal] = useState<Portal | null>(incomingPortal);
-  const [email, setEmail]     = useState(incomingPortal ? HINTS[incomingPortal].email : '');
-  const [password, setPassword] = useState(incomingPortal ? HINTS[incomingPortal].password : '');
-  const [error, setError]     = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   const selectPortal = (p: Portal) => {
     setPortal(p);
-    setEmail(HINTS[p].email);
-    setPassword(HINTS[p].password);
+    setEmail('');
+    setPassword('');
     setError('');
   };
 
@@ -64,7 +59,16 @@ export function LoginPage() {
     setLoading(true);
     try {
       const s = await signIn(email, password);
-      const roleHome = ROLE_DEST[s.role] ?? '/';
+      // super_admin and pm_manager (managementRole) should go to PM portal
+      const mgmtRole = s.managementRole;
+      let roleHome: string;
+      if (s.role === 'pm_manager' || s.role === 'pm_viewer') {
+        roleHome = '/pm/dashboard';
+      } else if (mgmtRole === 'owner') {
+        roleHome = '/management';
+      } else {
+        roleHome = ROLE_DEST[s.role] ?? '/';
+      }
       const prefix = PORTAL_PREFIX[s.role];
       const dest = (from && prefix && from.startsWith(prefix)) ? from : roleHome;
       navigate(dest, { replace: true });
@@ -136,9 +140,7 @@ export function LoginPage() {
                 <h2 className="font-serif text-2xl font-semibold text-navy-800 mb-1">
                   {portals.find((p) => p.key === portal)?.title}
                 </h2>
-                <p className="text-xs text-stone-400 mb-6">
-                  {isRtl ? 'كلمة المرور التجريبية: password' : 'Demo password: password'}
-                </p>
+
                 <form onSubmit={handleSignIn} className="space-y-4">
                   <div>
                     <label className="text-sm font-medium text-navy-700 block mb-1">

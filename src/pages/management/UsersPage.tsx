@@ -32,12 +32,19 @@ export function UsersPage() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState<ManagementRole>('facility_manager');
+  const [role, setRole] = useState<ManagementRole>('owner');;
   const [selectedProps, setSelectedProps] = useState<string[]>([]);
   const [createdPassword, setCreatedPassword] = useState('');
   const [copied, setCopied] = useState(false);
 
-  const roleLabel = (r: ManagementRole) => t(r === 'technician' ? 'technicianRole' : r);
+  const roleLabel = (r: ManagementRole) => {
+    if (r === 'technician') return isRtl ? 'فني' : 'Technician';
+    if (r === 'owner') return isRtl ? 'مالك' : 'Owner';
+    if (r === 'pm_manager') return isRtl ? 'مدير مشروع' : 'Project Manager';
+    if (r === 'super_admin') return isRtl ? 'مدير النظام' : 'Super Admin';
+    if (r === 'facility_manager') return isRtl ? 'مدير المرفق' : 'Facility Manager';
+    return r;
+  };
 
   const getPropertyName = (id: string) => {
     const p = properties.find((x) => x.id === id);
@@ -164,10 +171,9 @@ export function UsersPage() {
             <div>
               <label className="text-xs text-stone-500 mb-1 block">{t('role')}</label>
               <select className="form-input" value={role} onChange={(e) => setRole(e.target.value as ManagementRole)}>
-                <option value="facility_manager">{t('facility_manager')}</option>
-                <option value="technician">{t('technicianRole')}</option>
-                <option value="owner">{t('owner')}</option>
-                <option value="super_admin">{t('super_admin')}</option>
+                <option value="owner">{isRtl ? 'مالك' : 'Owner'}</option>
+                <option value="technician">{isRtl ? 'فني' : 'Technician'}</option>
+                <option value="pm_manager">{isRtl ? 'مدير مشروع' : 'Project Manager'}</option>
               </select>
             </div>
             <div>

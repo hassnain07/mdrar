@@ -53,6 +53,7 @@ const PmDashboard = lazy(() => import('@/pages/pm/PmDashboard').then((m) => ({ d
 const ProjectDetail = lazy(() => import('@/pages/pm/ProjectDetail').then((m) => ({ default: m.ProjectDetail })));
 const AddProject = lazy(() => import('@/pages/pm/AddProject').then((m) => ({ default: m.AddProject })));
 const FinanceComingSoon = lazy(() => import('@/pages/pm/FinanceComingSoon').then((m) => ({ default: m.FinanceComingSoon })));
+const PmProfile = lazy(() => import('@/pages/pm/PmProfile').then((m) => ({ default: m.PmProfile })));
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -117,6 +118,7 @@ function AppRoutes() {
         <Route path="/pm/dashboard" element={<RequireRole roles={['pm_manager', 'pm_viewer', 'management']}><PmLayout><RouteSuspense><PmDashboard /></RouteSuspense></PmLayout></RequireRole>} />
         <Route path="/pm/project/:id" element={<RequireRole roles={['pm_manager', 'pm_viewer', 'management']}><PmLayout><RouteSuspense><ProjectDetail /></RouteSuspense></PmLayout></RequireRole>} />
         <Route path="/pm/add-project" element={<RequireRole roles={['pm_manager', 'management']}><PmLayout><RouteSuspense><AddProject /></RouteSuspense></PmLayout></RequireRole>} />
+        <Route path="/pm/profile" element={<RequireRole roles={['pm_manager', 'pm_viewer', 'management']}><PmLayout><RouteSuspense><PmProfile /></RouteSuspense></PmLayout></RequireRole>} />
 
         {/* Technician routes */}
         <Route path="/technician" element={<RequireRole roles={['technician']}><TechnicianLayout><RouteSuspense><TechnicianDashboard /></RouteSuspense></TechnicianLayout></RequireRole>} />

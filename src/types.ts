@@ -3,7 +3,7 @@ export type Role = 'tenant' | 'management' | null;
 export type RequestType = 'preventive' | 'corrective' | 'emergency';
 export type RequestStatus = 'submitted' | 'acknowledged' | 'in_progress' | 'resolved';
 export type Category = 'ac' | 'plumbing' | 'electrical' | 'common';
-export type ManagementRole = 'super_admin' | 'facility_manager' | 'technician' | 'owner';
+export type ManagementRole = 'super_admin' | 'facility_manager' | 'technician' | 'owner' | 'pm_manager';
 
 export type Suite = 'hub' | 'fm' | 'pm';
 export type ProjectStatus = 'on_track' | 'at_risk' | 'delayed' | 'completed';
